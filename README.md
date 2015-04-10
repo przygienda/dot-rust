@@ -2,7 +2,7 @@
 
 A library for generating Graphviz DOT language files for graphs.
 
-This code is extracted from the private `graphviz` library in core rust.
+This code is extracted from the private `graphviz` library in core rust.  It is almost entirely the work of the rust team.
 
 # License
 Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
