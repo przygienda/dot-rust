@@ -49,7 +49,6 @@
 //! ```rust
 //! use std::borrow::Cow;
 //! use std::io::Write;
-//! use graphviz as dot;
 //!
 //! type Nd = isize;
 //! type Ed = (isize,isize);
@@ -149,7 +148,6 @@
 //!
 //! ```rust
 //! use std::io::Write;
-//! use graphviz as dot;
 //!
 //! type Nd = usize;
 //! type Ed<'a> = &'a (usize, usize);
@@ -205,7 +203,6 @@
 //!
 //! ```rust
 //! use std::io::Write;
-//! use graphviz as dot;
 //!
 //! type Nd<'a> = (usize, &'a str);
 //! type Ed<'a> = (Nd<'a>, Nd<'a>);
@@ -266,7 +263,7 @@
 //! * [DOT language](http://www.graphviz.org/doc/info/lang.html)
 
 // Do not remove on snapshot creation. Needed for bootstrap. (Issue #22364)
-#![crate_name = "graphviz"]
+#![crate_name = "dot"]
 #![crate_type = "rlib"]
 #![crate_type = "dylib"]
 #![doc(html_logo_url = "http://www.rust-lang.org/lgos/rust-logo-128x128-blk-v2.png",

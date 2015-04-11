@@ -1,4 +1,4 @@
-# graphviz-rust
+# dot-rust
 
 A library for generating Graphviz DOT language files for graphs.
 

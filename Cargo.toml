@@ -1,6 +1,6 @@
 [package]
-name = "graphviz"
-version = "0.0.3"
+name = "dot"
+version = "0.0.4"
 authors = ["Graham Dennis <graham.dennis@gmail.com>"]
 description = "A library for generating Graphviz DOT language files for graphs."
 readme = "README.md"
