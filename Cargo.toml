@@ -1,8 +1,8 @@
 [package]
 name = "dot"
 version = "0.0.5-dev"
-authors = ["Graham Dennis <graham.dennis@gmail.com>"]
+authors = ["The Rust Project Developers", "Graham Dennis <graham.dennis@gmail.com>"]
 description = "A library for generating Graphviz DOT language files for graphs."
 readme = "README.md"
-license = "Apache-2.0/MIT"
+license = "MIT/Apache-2.0"
 repository = "https://github.com/GrahamDennis/dot-rust"
