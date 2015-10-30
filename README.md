@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/GrahamDennis/dot-rust.svg?branch=develop)](https://travis-ci.org/GrahamDennis/dot-rust)
+
 # dot-rust
 
 A library for generating Graphviz DOT language files for graphs.
