@@ -469,6 +469,18 @@ pub trait Labeller<'a,N,E> {
         Style::None
     }
 
+    /// Maps `e` to arrow style that will be used on the end of an edge.
+    /// Defaults to normal.
+    fn edge_end_arrow(&'a self, _e: &E) -> Arrow {
+        Arrow::normal()
+    }
+
+    /// Maps `e` to arrow style that will be used on the end of an edge.
+    /// Defaults to no arrow style.
+    fn edge_start_arrow(&'a self, _e: &E) -> Arrow {
+        Arrow::none()
+    }
+
     /// Maps `e` to a style that will be used in the rendered output.
     fn edge_style(&'a self, _e: &E) -> Style {
         Style::None
@@ -563,6 +575,231 @@ impl<'a> LabelText<'a> {
     }
 }
 
+
+/// This structure holds all information that can describe an arrow connected to
+/// either start or end of an edge.
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub struct Arrow {
+    pub arrows: Vec<ArrowShape>,
+}
+
+use self::ArrowShape::*;
+
+impl Arrow {
+
+    /// Arrow constructor which returns an empty arrow
+    pub fn none() -> Arrow {
+        Arrow {
+            arrows: vec![NoArrow],
+        }
+    }
+
+    /// Arrow constructor which returns a regular triangle arrow, without modifiers
+    pub fn normal() -> Arrow {
+        Arrow {
+            arrows: vec![Normal(Fill::Filled, Side::Both)],
+        }
+    }
+
+    /// Arrow constructor which returns an arrow created by a given ArrowShape.
+    pub fn from_arrow(arrow: ArrowShape) -> Arrow {
+        Arrow {
+            arrows: vec![arrow],
+        }
+    }
+
+    /// Function which converts given arrow into a renderable form.
+    pub fn to_dot_string(&self) -> String {
+        let mut cow = String::new();
+        for arrow in &self.arrows {
+            cow.push_str(&arrow.to_dot_string());
+        };
+        cow
+    }
+}
+
+
+impl Into<Arrow> for [ArrowShape; 2] {
+    fn into(self) -> Arrow {
+        Arrow {
+            arrows: vec![self[0], self[1]],
+        }
+    }
+}
+impl Into<Arrow> for [ArrowShape; 3] {
+    fn into(self) -> Arrow {
+        Arrow {
+            arrows: vec![self[0], self[1], self[2]],
+        }
+    }
+}
+impl Into<Arrow> for [ArrowShape; 4] {
+    fn into(self) -> Arrow {
+        Arrow {
+            arrows: vec![self[0], self[1], self[2], self[3]],
+        }
+    }
+}
+
+/// Arrow modifier that determines if the shape is empty or filled.
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub enum Fill {
+    Open,
+    Filled,
+}
+
+impl Fill {
+    pub fn as_slice(self) -> &'static str {
+        match self {
+            Fill::Open => "o",
+            Fill::Filled => "",
+        }
+    }
+}
+
+/// Arrow modifier that determines if the shape is clipped.
+/// For example `Side::Left` means only left side is visible.
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub enum Side {
+    Left,
+    Right,
+    Both,
+}
+
+impl Side {
+    pub fn as_slice(self) -> &'static str {
+        match self {
+            Side::Left  => "l",
+            Side::Right => "r",
+            Side::Both  => "",
+        }
+    }
+}
+
+
+/// This enumeration represents all possible arrow edge
+/// as defined in [grapviz documentation](http://www.graphviz.org/content/arrow-shapes).
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+pub enum ArrowShape {
+    /// No arrow will be displayed
+    NoArrow,
+    /// Arrow that ends in a triangle. Basically a normal arrow.
+    /// NOTE: there is error in official documentation, this supports both fill and side clipping
+    Normal(Fill, Side),
+    /// Arrow ending in a small square box
+    Box(Fill, Side),
+    /// Arrow ending in a three branching lines also called crow's foot
+    Crow(Side),
+    /// Arrow ending in a curve
+    Curve(Side),
+    /// Arrow ending in an inverted curve
+    ICurve(Fill, Side),
+    /// Arrow ending in an diamond shaped rectangular shape.
+    Diamond(Fill, Side),
+    /// Arrow ending in a circle.
+    Dot(Fill),
+    /// Arrow ending in an inverted triangle.
+    Inv(Fill, Side),
+    /// Arrow ending with a T shaped arrow.
+    Tee(Side),
+    /// Arrow ending with a V shaped arrow.
+    Vee(Side),
+}
+impl ArrowShape {
+    /// Constructor which returns no arrow.
+    pub fn none() -> ArrowShape {
+        ArrowShape::NoArrow
+    }
+
+    /// Constructor which returns normal arrow.
+    pub fn normal() -> ArrowShape {
+        ArrowShape::Normal(Fill::Filled, Side::Both)
+    }
+
+    /// Constructor which returns a regular box arrow.
+    pub fn boxed() -> ArrowShape {
+        ArrowShape::Box(Fill::Filled, Side::Both)
+    }
+
+    /// Constructor which returns a regular crow arrow.
+    pub fn crow() -> ArrowShape {
+        ArrowShape::Crow(Side::Both)
+    }
+
+    /// Constructor which returns a regular curve arrow.
+    pub fn curve() -> ArrowShape {
+        ArrowShape::Curve(Side::Both)
+    }
+
+    /// Constructor which returns an inverted curve arrow.
+    pub fn icurve() -> ArrowShape {
+        ArrowShape::ICurve(Fill::Filled, Side::Both)
+    }
+
+    /// Constructor which returns a diamond arrow.
+    pub fn diamond() -> ArrowShape {
+        ArrowShape::Diamond(Fill::Filled, Side::Both)
+    }
+
+    /// Constructor which returns a circle shaped arrow.
+    pub fn dot() -> ArrowShape {
+        ArrowShape::Diamond(Fill::Filled, Side::Both)
+    }
+
+    /// Constructor which returns an inverted triangle arrow.
+    pub fn inv() -> ArrowShape {
+        ArrowShape::Inv(Fill::Filled, Side::Both)
+    }
+
+    /// Constructor which returns a T shaped arrow.
+    pub fn tee() -> ArrowShape {
+        ArrowShape::Tee(Side::Both)
+    }
+
+    /// Constructor which returns a V shaped arrow.
+    pub fn vee() -> ArrowShape {
+        ArrowShape::Vee(Side::Both)
+    }
+
+    /// Function which renders given ArrowShape into a String for displaying.
+    pub fn to_dot_string(&self) -> String {
+        let mut res = String::new();
+        match *self {
+            Box(fill, side) | ICurve(fill, side)| Diamond(fill, side) |
+            Inv(fill, side) | Normal(fill, side)=> {
+                res.push_str(fill.as_slice());
+                match side {
+                    Side::Left | Side::Right => res.push_str(side.as_slice()),
+                    Side::Both => {},
+                };
+            },
+            Dot(fill)       => res.push_str(fill.as_slice()),
+            Crow(side) | Curve(side) | Tee(side)
+            | Vee(side) => {
+                match side {
+                    Side::Left | Side::Right => res.push_str(side.as_slice()),
+                    Side::Both => {},
+                }
+            }
+            NoArrow => {},
+        };
+        match *self {
+            NoArrow         => res.push_str("none"),
+            Normal(_, _)    => res.push_str("normal"),
+            Box(_, _)       => res.push_str("box"),
+            Crow(_)         => res.push_str("crow"),
+            Curve(_)        => res.push_str("curve"),
+            ICurve(_, _)    => res.push_str("icurve"),
+            Diamond(_, _)   => res.push_str("diamond"),
+            Dot(_)          => res.push_str("dot"),
+            Inv(_, _)       => res.push_str("inv"),
+            Tee(_)          => res.push_str("tee"),
+            Vee(_)          => res.push_str("vee"),
+        };
+        res
+    }
+}
+
 pub type Nodes<'a,N> = Cow<'a,[N]>;
 pub type Edges<'a,E> = Cow<'a,[E]>;
 
@@ -599,6 +836,7 @@ pub enum RenderOption {
     NoNodeLabels,
     NoEdgeStyles,
     NoNodeStyles,
+    NoArrows,
 }
 
 /// Returns vec holding all the default render options.
@@ -677,6 +915,9 @@ pub fn render_opts<'a,
 
     for e in g.edges().iter() {
         let escaped_label = &g.edge_label(e).to_dot_string();
+        let start_arrow = &g.edge_start_arrow(e).to_dot_string();
+        let end_arrow = &g.edge_end_arrow(e).to_dot_string();
+
         try!(indent(w));
         let source = g.source(e);
         let target = g.target(e);
@@ -698,6 +939,23 @@ pub fn render_opts<'a,
             text.push("\"]");
         }
 
+        println!("options {:?} start arrow {:?} end arrow {:?}", options, start_arrow, end_arrow);
+        if !options.contains(&RenderOption::NoArrows) &&  (start_arrow != "none" || end_arrow != "normal") {
+            text.push("[");
+            if end_arrow != "normal" {
+                text.push("arrowhead=\"");
+                text.push(end_arrow);
+                text.push("\"");
+            }
+            if start_arrow != "none" {
+                text.push(" dir=\"both\" arrowtail=\"");
+                text.push(start_arrow);
+                text.push("\"");
+            }
+
+            text.push("]");
+        }
+
         text.push(";");
         try!(writeln(w, &text));
     }
@@ -710,6 +968,7 @@ mod tests {
     use self::NodeLabels::*;
     use super::{Id, Labeller, Nodes, Edges, GraphWalk, render, Style};
     use super::LabelText::{self, LabelStr, EscStr, HtmlStr};
+    use super::{Arrow, ArrowShape, Side};
     use std::io;
     use std::io::prelude::*;
 
@@ -720,11 +979,33 @@ mod tests {
         to: usize,
         label: &'static str,
         style: Style,
+        start_arrow: Arrow,
+        end_arrow: Arrow,
     }
 
     fn edge(from: usize, to: usize, label: &'static str, style: Style) -> Edge {
-        Edge { from: from, to: to, label: label, style: style }
+        Edge {
+            from: from,
+            to: to,
+            label: label,
+            style: style,
+            start_arrow: Arrow::none(),
+            end_arrow: Arrow::normal(),
+        }
     }
+
+    fn edge_with_arrows(from: usize, to: usize, label: &'static str, style:Style,
+        start_arrow: Arrow, end_arrow: Arrow) -> Edge {
+        Edge {
+            from: from,
+            to: to,
+            label: label,
+            style: style,
+            start_arrow: start_arrow,
+            end_arrow: end_arrow,
+        }
+    }
+
 
     struct LabelledGraph {
         /// The name for this graph. Used for labelling generated `digraph`.
@@ -832,6 +1113,15 @@ mod tests {
         fn edge_style(&'a self, e: &&'a Edge) -> Style {
             e.style
         }
+
+        fn edge_end_arrow(&'a self, e: &&'a Edge) -> Arrow {
+            e.end_arrow.clone()
+        }
+
+        fn edge_start_arrow(&'a self, e: &&'a Edge) -> Arrow {
+            e.start_arrow.clone()
+        }
+
     }
 
     impl<'a> Labeller<'a, Node, &'a Edge> for LabelledGraphWithEscStrs {
@@ -1064,6 +1354,44 @@ r#"digraph syntax_tree {
             Ok(_) => {}
             Err(..) => panic!("'hello' is not a valid value for id anymore"),
         }
+    }
+
+    #[test]
+    fn test_some_arrow() {
+        let labels: Trivial = SomeNodesLabelled(vec![Some("A"), None]);
+        let styles = Some(vec![Style::None, Style::Dotted]);
+        let start  = Arrow::none();
+        let end    = Arrow::from_arrow(ArrowShape::crow());
+        let result = test_input(LabelledGraph::new("test_some_labelled",
+                                                   labels,
+                                                   vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end)],
+                                                   styles));
+        assert_eq!(result.unwrap(),
+r#"digraph test_some_labelled {
+    N0[label="A"];
+    N1[label="N1"][style="dotted"];
+    N0 -> N1[label="A-1"][arrowhead="crow"];
+}
+"#);
+    }
+
+    #[test]
+    fn test_some_arrows() {
+        let labels: Trivial = SomeNodesLabelled(vec![Some("A"), None]);
+        let styles = Some(vec![Style::None, Style::Dotted]);
+        let start  = Arrow::from_arrow(ArrowShape::tee());
+        let end    = Arrow::from_arrow(ArrowShape::Crow(Side::Left));
+        let result = test_input(LabelledGraph::new("test_some_labelled",
+                                                   labels,
+                                                   vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end)],
+                                                   styles));
+        assert_eq!(result.unwrap(),
+r#"digraph test_some_labelled {
+    N0[label="A"];
+    N1[label="N1"][style="dotted"];
+    N0 -> N1[label="A-1"][arrowhead="lcrow" dir="both" arrowtail="tee"];
+}
+"#);
     }
 
     #[test]
