@@ -272,8 +272,10 @@
 use self::LabelText::*;
 
 use std::borrow::Cow;
+use std::fmt;
 use std::io::prelude::*;
 use std::io;
+use std::marker::PhantomData;
 
 /// The text for a graphviz label on a node or edge.
 pub enum LabelText<'a> {
@@ -861,6 +863,137 @@ pub fn default_options() -> Vec<RenderOption> {
     vec![]
 }
 
+/// `RenderDisplay` implements `Display` formatting that renders the
+/// graph with the given `RenderOptions` in DOT syntax.
+pub struct RenderDisplay<'a, 'b, G: 'a, N: 'a, E: 'a> {
+    graph: &'a G,
+    options: &'b [RenderOption],
+    marker: PhantomData<(&'a N, &'a E)>,
+}
+
+impl<'a, 'b, G, N, E> RenderDisplay<'a, 'b, G, N, E>
+    where N: Clone + 'a,
+          E: Clone + 'a,
+          G: Labeller<'a, N, E> + GraphWalk<'a, N, E>,
+{
+    pub fn new(graph: &'a G) -> Self {
+        Self::with_options(graph, &[])
+    }
+
+    pub fn with_options(graph: &'a G, options: &'b [RenderOption]) -> Self {
+        RenderDisplay {
+            graph: graph,
+            options: options,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, 'b, G, N, E> fmt::Display for RenderDisplay<'a, 'b, G, N, E>
+    where N: Clone + 'a,
+          E: Clone + 'a,
+          G: Labeller<'a, N, E> + GraphWalk<'a, N, E>,
+{
+    fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
+        fn writeln<W: fmt::Write>(w: &mut W, arg: &[&str]) -> fmt::Result {
+            for &s in arg {
+                try!(w.write_str(s));
+            }
+            write!(w, "\n")
+        }
+
+        fn indent<W: fmt::Write>(w: &mut W) -> fmt::Result {
+            w.write_str("    ")
+        }
+
+        let g = self.graph;
+        let options = self.options;
+        let kind = g.kind() as usize;
+
+        try!(writeln(w, &[GRAPHKEYWORD[kind], " ", g.graph_id().as_slice(), " {"]));
+        for n in g.nodes().iter() {
+            try!(indent(w));
+            let id = g.node_id(n);
+
+            let escaped = &g.node_label(n).to_dot_string();
+            let shape;
+
+            let mut text = vec![id.as_slice()];
+
+            if !options.contains(&RenderOption::NoNodeLabels) {
+                text.push("[label=");
+                text.push(escaped);
+                text.push("]");
+            }
+
+            let style = g.node_style(n);
+            if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
+                text.push("[style=\"");
+                text.push(style.as_slice());
+                text.push("\"]");
+            }
+
+            if let Some(s) = g.node_shape(n) {
+                shape = s.to_dot_string();
+                text.push("[shape=");
+                text.push(&shape);
+                text.push("]");
+            }
+
+            text.push(";");
+            try!(writeln(w, &text));
+        }
+
+        for e in g.edges().iter() {
+            let escaped_label = &g.edge_label(e).to_dot_string();
+            let start_arrow = &g.edge_start_arrow(e).to_dot_string();
+            let end_arrow = &g.edge_end_arrow(e).to_dot_string();
+
+            try!(indent(w));
+            let source = g.source(e);
+            let target = g.target(e);
+            let source_id = g.node_id(&source);
+            let target_id = g.node_id(&target);
+
+            let mut text = vec![source_id.as_slice(), " ", EDGEOP[kind], " ", target_id.as_slice()];
+
+            if !options.contains(&RenderOption::NoEdgeLabels) {
+                text.push("[label=");
+                text.push(escaped_label);
+                text.push("]");
+            }
+
+            let style = g.edge_style(e);
+            if !options.contains(&RenderOption::NoEdgeStyles) && style != Style::None {
+                text.push("[style=\"");
+                text.push(style.as_slice());
+                text.push("\"]");
+            }
+
+            if !options.contains(&RenderOption::NoArrows) &&  (start_arrow != "none" || end_arrow != "normal") {
+                text.push("[");
+                if end_arrow != "normal" {
+                    text.push("arrowhead=\"");
+                    text.push(end_arrow);
+                    text.push("\"");
+                }
+                if start_arrow != "none" {
+                    text.push(" dir=\"both\" arrowtail=\"");
+                    text.push(start_arrow);
+                    text.push("\"");
+                }
+
+                text.push("]");
+            }
+
+            text.push(";");
+            try!(writeln(w, &text));
+        }
+
+        writeln(w, &["}"])
+    }
+}
+
 /// Renders graph `g` into the writer `w` in DOT syntax.
 /// (Simple wrapper around `render_opts` that passes a default set of options.)
 pub fn render<'a,
@@ -885,100 +1018,7 @@ pub fn render_opts<'a,
      w: &mut W,
      options: &[RenderOption])
      -> io::Result<()> {
-    fn writeln<W: Write>(w: &mut W, arg: &[&str]) -> io::Result<()> {
-        for &s in arg {
-            try!(w.write_all(s.as_bytes()));
-        }
-        write!(w, "\n")
-    }
-
-    fn indent<W: Write>(w: &mut W) -> io::Result<()> {
-        w.write_all(b"    ")
-    }
-
-    let kind = g.kind() as usize;
-
-    try!(writeln(w, &[GRAPHKEYWORD[kind], " ", g.graph_id().as_slice(), " {"]));
-    for n in g.nodes().iter() {
-        try!(indent(w));
-        let id = g.node_id(n);
-
-        let escaped = &g.node_label(n).to_dot_string();
-        let shape;
-
-        let mut text = vec![id.as_slice()];
-
-        if !options.contains(&RenderOption::NoNodeLabels) {
-            text.push("[label=");
-            text.push(escaped);
-            text.push("]");
-        }
-
-        let style = g.node_style(n);
-        if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
-            text.push("[style=\"");
-            text.push(style.as_slice());
-            text.push("\"]");
-        }
-
-        if let Some(s) = g.node_shape(n) {
-            shape = s.to_dot_string();
-            text.push("[shape=");
-            text.push(&shape);
-            text.push("]");
-        }
-
-        text.push(";");
-        try!(writeln(w, &text));
-    }
-
-    for e in g.edges().iter() {
-        let escaped_label = &g.edge_label(e).to_dot_string();
-        let start_arrow = &g.edge_start_arrow(e).to_dot_string();
-        let end_arrow = &g.edge_end_arrow(e).to_dot_string();
-
-        try!(indent(w));
-        let source = g.source(e);
-        let target = g.target(e);
-        let source_id = g.node_id(&source);
-        let target_id = g.node_id(&target);
-
-        let mut text = vec![source_id.as_slice(), " ", EDGEOP[kind], " ", target_id.as_slice()];
-
-        if !options.contains(&RenderOption::NoEdgeLabels) {
-            text.push("[label=");
-            text.push(escaped_label);
-            text.push("]");
-        }
-
-        let style = g.edge_style(e);
-        if !options.contains(&RenderOption::NoEdgeStyles) && style != Style::None {
-            text.push("[style=\"");
-            text.push(style.as_slice());
-            text.push("\"]");
-        }
-
-        if !options.contains(&RenderOption::NoArrows) &&  (start_arrow != "none" || end_arrow != "normal") {
-            text.push("[");
-            if end_arrow != "normal" {
-                text.push("arrowhead=\"");
-                text.push(end_arrow);
-                text.push("\"");
-            }
-            if start_arrow != "none" {
-                text.push(" dir=\"both\" arrowtail=\"");
-                text.push(start_arrow);
-                text.push("\"");
-            }
-
-            text.push("]");
-        }
-
-        text.push(";");
-        try!(writeln(w, &text));
-    }
-
-    writeln(w, &["}"])
+    write!(w, "{}", RenderDisplay::with_options(g, options))
 }
 
 #[cfg(test)]
