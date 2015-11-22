@@ -939,7 +939,6 @@ pub fn render_opts<'a,
             text.push("\"]");
         }
 
-        println!("options {:?} start arrow {:?} end arrow {:?}", options, start_arrow, end_arrow);
         if !options.contains(&RenderOption::NoArrows) &&  (start_arrow != "none" || end_arrow != "normal") {
             text.push("[");
             if end_arrow != "normal" {
