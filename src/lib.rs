@@ -272,8 +272,10 @@
 use self::LabelText::*;
 
 use std::borrow::Cow;
+use std::fmt;
 use std::io::prelude::*;
 use std::io;
+use std::marker::PhantomData;
 
 /// The text for a graphviz label on a node or edge.
 pub enum LabelText<'a> {
@@ -803,10 +805,22 @@ impl ArrowShape {
 pub type Nodes<'a,N> = Cow<'a,[N]>;
 pub type Edges<'a,E> = Cow<'a,[E]>;
 
+/// Graph kind determines if `digraph` or `graph` is used as keyword
+/// for the graph.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Kind {
+    Digraph,
+    Graph,
+}
+
+// array index is `Kind` discriminant
+const GRAPHKEYWORD: [&'static str; 2] = ["digraph", "graph"];
+const EDGEOP: [&'static str; 2] = ["->", "--"];
+
 // (The type parameters in GraphWalk should be associated items,
 // when/if Rust supports such.)
 
-/// GraphWalk is an abstraction over a directed graph = (nodes,edges)
+/// GraphWalk is an abstraction over a graph = (nodes,edges)
 /// made up of node handles `N` and edge handles `E`, where each `E`
 /// can be mapped to its source and target nodes.
 ///
@@ -828,6 +842,11 @@ pub trait GraphWalk<'a, N: Clone, E: Clone> {
     fn source(&'a self, edge: &E) -> N;
     /// The target node for `edge`.
     fn target(&'a self, edge: &E) -> N;
+    /// The kind of graph, defaults to `Kind::Digraph`.
+    #[inline]
+    fn kind(&self) -> Kind {
+        Kind::Digraph
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -844,7 +863,138 @@ pub fn default_options() -> Vec<RenderOption> {
     vec![]
 }
 
-/// Renders directed graph `g` into the writer `w` in DOT syntax.
+/// `RenderDisplay` implements `Display` formatting that renders the
+/// graph with the given `RenderOptions` in DOT syntax.
+pub struct RenderDisplay<'a, 'b, G: 'a, N: 'a, E: 'a> {
+    graph: &'a G,
+    options: &'b [RenderOption],
+    marker: PhantomData<(&'a N, &'a E)>,
+}
+
+impl<'a, 'b, G, N, E> RenderDisplay<'a, 'b, G, N, E>
+    where N: Clone + 'a,
+          E: Clone + 'a,
+          G: Labeller<'a, N, E> + GraphWalk<'a, N, E>,
+{
+    pub fn new(graph: &'a G) -> Self {
+        Self::with_options(graph, &[])
+    }
+
+    pub fn with_options(graph: &'a G, options: &'b [RenderOption]) -> Self {
+        RenderDisplay {
+            graph: graph,
+            options: options,
+            marker: PhantomData,
+        }
+    }
+}
+
+impl<'a, 'b, G, N, E> fmt::Display for RenderDisplay<'a, 'b, G, N, E>
+    where N: Clone + 'a,
+          E: Clone + 'a,
+          G: Labeller<'a, N, E> + GraphWalk<'a, N, E>,
+{
+    fn fmt(&self, w: &mut fmt::Formatter) -> fmt::Result {
+        fn writeln<W: fmt::Write>(w: &mut W, arg: &[&str]) -> fmt::Result {
+            for &s in arg {
+                try!(w.write_str(s));
+            }
+            write!(w, "\n")
+        }
+
+        fn indent<W: fmt::Write>(w: &mut W) -> fmt::Result {
+            w.write_str("    ")
+        }
+
+        let g = self.graph;
+        let options = self.options;
+        let kind = g.kind() as usize;
+
+        try!(writeln(w, &[GRAPHKEYWORD[kind], " ", g.graph_id().as_slice(), " {"]));
+        for n in g.nodes().iter() {
+            try!(indent(w));
+            let id = g.node_id(n);
+
+            let escaped = &g.node_label(n).to_dot_string();
+            let shape;
+
+            let mut text = vec![id.as_slice()];
+
+            if !options.contains(&RenderOption::NoNodeLabels) {
+                text.push("[label=");
+                text.push(escaped);
+                text.push("]");
+            }
+
+            let style = g.node_style(n);
+            if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
+                text.push("[style=\"");
+                text.push(style.as_slice());
+                text.push("\"]");
+            }
+
+            if let Some(s) = g.node_shape(n) {
+                shape = s.to_dot_string();
+                text.push("[shape=");
+                text.push(&shape);
+                text.push("]");
+            }
+
+            text.push(";");
+            try!(writeln(w, &text));
+        }
+
+        for e in g.edges().iter() {
+            let escaped_label = &g.edge_label(e).to_dot_string();
+            let start_arrow = &g.edge_start_arrow(e).to_dot_string();
+            let end_arrow = &g.edge_end_arrow(e).to_dot_string();
+
+            try!(indent(w));
+            let source = g.source(e);
+            let target = g.target(e);
+            let source_id = g.node_id(&source);
+            let target_id = g.node_id(&target);
+
+            let mut text = vec![source_id.as_slice(), " ", EDGEOP[kind], " ", target_id.as_slice()];
+
+            if !options.contains(&RenderOption::NoEdgeLabels) {
+                text.push("[label=");
+                text.push(escaped_label);
+                text.push("]");
+            }
+
+            let style = g.edge_style(e);
+            if !options.contains(&RenderOption::NoEdgeStyles) && style != Style::None {
+                text.push("[style=\"");
+                text.push(style.as_slice());
+                text.push("\"]");
+            }
+
+            if !options.contains(&RenderOption::NoArrows) &&  (start_arrow != "none" || end_arrow != "normal") {
+                text.push("[");
+                if end_arrow != "normal" {
+                    text.push("arrowhead=\"");
+                    text.push(end_arrow);
+                    text.push("\"");
+                }
+                if start_arrow != "none" {
+                    text.push(" dir=\"both\" arrowtail=\"");
+                    text.push(start_arrow);
+                    text.push("\"");
+                }
+
+                text.push("]");
+            }
+
+            text.push(";");
+            try!(writeln(w, &text));
+        }
+
+        writeln(w, &["}"])
+    }
+}
+
+/// Renders graph `g` into the writer `w` in DOT syntax.
 /// (Simple wrapper around `render_opts` that passes a default set of options.)
 pub fn render<'a,
               N: Clone + 'a,
@@ -857,7 +1007,7 @@ pub fn render<'a,
     render_opts(g, w, &[])
 }
 
-/// Renders directed graph `g` into the writer `w` in DOT syntax.
+/// Renders graph `g` into the writer `w` in DOT syntax.
 /// (Main entry point for the library.)
 pub fn render_opts<'a,
                    N: Clone + 'a,
@@ -868,104 +1018,13 @@ pub fn render_opts<'a,
      w: &mut W,
      options: &[RenderOption])
      -> io::Result<()> {
-    fn writeln<W: Write>(w: &mut W, arg: &[&str]) -> io::Result<()> {
-        for &s in arg {
-            try!(w.write_all(s.as_bytes()));
-        }
-        write!(w, "\n")
-    }
-
-    fn indent<W: Write>(w: &mut W) -> io::Result<()> {
-        w.write_all(b"    ")
-    }
-
-    try!(writeln(w, &["digraph ", g.graph_id().as_slice(), " {"]));
-    for n in g.nodes().iter() {
-        try!(indent(w));
-        let id = g.node_id(n);
-
-        let escaped = &g.node_label(n).to_dot_string();
-        let shape;
-
-        let mut text = vec![id.as_slice()];
-
-        if !options.contains(&RenderOption::NoNodeLabels) {
-            text.push("[label=");
-            text.push(escaped);
-            text.push("]");
-        }
-
-        let style = g.node_style(n);
-        if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
-            text.push("[style=\"");
-            text.push(style.as_slice());
-            text.push("\"]");
-        }
-
-        if let Some(s) = g.node_shape(n) {
-            shape = s.to_dot_string();
-            text.push("[shape=");
-            text.push(&shape);
-            text.push("]");
-        }
-
-        text.push(";");
-        try!(writeln(w, &text));
-    }
-
-    for e in g.edges().iter() {
-        let escaped_label = &g.edge_label(e).to_dot_string();
-        let start_arrow = &g.edge_start_arrow(e).to_dot_string();
-        let end_arrow = &g.edge_end_arrow(e).to_dot_string();
-
-        try!(indent(w));
-        let source = g.source(e);
-        let target = g.target(e);
-        let source_id = g.node_id(&source);
-        let target_id = g.node_id(&target);
-
-        let mut text = vec![source_id.as_slice(), " -> ", target_id.as_slice()];
-
-        if !options.contains(&RenderOption::NoEdgeLabels) {
-            text.push("[label=");
-            text.push(escaped_label);
-            text.push("]");
-        }
-
-        let style = g.edge_style(e);
-        if !options.contains(&RenderOption::NoEdgeStyles) && style != Style::None {
-            text.push("[style=\"");
-            text.push(style.as_slice());
-            text.push("\"]");
-        }
-
-        if !options.contains(&RenderOption::NoArrows) &&  (start_arrow != "none" || end_arrow != "normal") {
-            text.push("[");
-            if end_arrow != "normal" {
-                text.push("arrowhead=\"");
-                text.push(end_arrow);
-                text.push("\"");
-            }
-            if start_arrow != "none" {
-                text.push(" dir=\"both\" arrowtail=\"");
-                text.push(start_arrow);
-                text.push("\"");
-            }
-
-            text.push("]");
-        }
-
-        text.push(";");
-        try!(writeln(w, &text));
-    }
-
-    writeln(w, &["}"])
+    write!(w, "{}", RenderDisplay::with_options(g, options))
 }
 
 #[cfg(test)]
 mod tests {
     use self::NodeLabels::*;
-    use super::{Id, Labeller, Nodes, Edges, GraphWalk, render, Style};
+    use super::{Id, Labeller, Nodes, Edges, GraphWalk, render, Style, Kind};
     use super::LabelText::{self, LabelStr, EscStr, HtmlStr};
     use super::{Arrow, ArrowShape, Side};
     use std::io;
@@ -1024,6 +1083,8 @@ mod tests {
         /// Each edge relates a from-index to a to-index along with a
         /// label; `edges` collects them.
         edges: Vec<Edge>,
+
+        kind: Kind,
     }
 
     // A simple wrapper around LabelledGraph that forces the labels to
@@ -1073,7 +1134,13 @@ mod tests {
                     Some(nodes) => nodes,
                     None => vec![Style::None; count],
                 },
+                kind: Kind::Digraph,
             }
+        }
+
+        fn kind(mut self, kind: Kind) -> Self {
+            self.kind = kind;
+            self
         }
     }
 
@@ -1154,6 +1221,10 @@ mod tests {
         }
         fn target(&'a self, edge: &&'a Edge) -> Node {
             edge.to
+        }
+
+        fn kind(&self) -> Kind {
+            self.kind
         }
     }
 
@@ -1290,17 +1361,17 @@ r#"digraph single_cyclic_node {
                                                    edge(0, 2, "", Style::None),
                                                    edge(1, 3, "", Style::None),
                                                    edge(2, 3, "", Style::None)],
-                                              None));
+                                              None).kind(Kind::Graph));
         assert_eq!(r.unwrap(),
-r#"digraph hasse_diagram {
+r#"graph hasse_diagram {
     N0[label="{x,y}"];
     N1[label="{x}"];
     N2[label="{y}"];
     N3[label="{}"];
-    N0 -> N1[label=""];
-    N0 -> N2[label=""];
-    N1 -> N3[label=""];
-    N2 -> N3[label=""];
+    N0 -- N1[label=""];
+    N0 -- N2[label=""];
+    N1 -- N3[label=""];
+    N2 -- N3[label=""];
 }
 "#);
     }
