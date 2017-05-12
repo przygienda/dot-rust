@@ -85,9 +85,9 @@
 //!         Cow::Borrowed(&edges[..])
 //!     }
 //!
-//!     fn source(&self, e: &Ed) -> Nd { let &(s,_) = e; s }
+//!     fn source(&self, e: &Ed) -> Nd { e.0 }
 //!
-//!     fn target(&self, e: &Ed) -> Nd { let &(_,t) = e; t }
+//!     fn target(&self, e: &Ed) -> Nd { e.1 }
 //! }
 //!
 //! # pub fn main() { render_to(&mut Vec::new()) }
@@ -177,8 +177,8 @@
 //! impl<'a> dot::GraphWalk<'a, Nd, Ed<'a>> for Graph {
 //!     fn nodes(&self) -> dot::Nodes<'a,Nd> { (0..self.nodes.len()).collect() }
 //!     fn edges(&'a self) -> dot::Edges<'a,Ed<'a>> { self.edges.iter().collect() }
-//!     fn source(&self, e: &Ed) -> Nd { let & &(s,_) = e; s }
-//!     fn target(&self, e: &Ed) -> Nd { let & &(_,t) = e; t }
+//!     fn source(&self, e: &Ed) -> Nd { e.0 }
+//!     fn target(&self, e: &Ed) -> Nd { e.1 }
 //! }
 //!
 //! # pub fn main() { render_to(&mut Vec::new()) }
@@ -240,8 +240,8 @@
 //!                           (j, &self.nodes[j][..])))
 //!             .collect()
 //!     }
-//!     fn source(&self, e: &Ed<'a>) -> Nd<'a> { let &(s,_) = e; s }
-//!     fn target(&self, e: &Ed<'a>) -> Nd<'a> { let &(_,t) = e; t }
+//!     fn source(&self, e: &Ed<'a>) -> Nd<'a> { e.0 }
+//!     fn target(&self, e: &Ed<'a>) -> Nd<'a> { e.1 }
 //! }
 //!
 //! # pub fn main() { render_to(&mut Vec::new()) }
