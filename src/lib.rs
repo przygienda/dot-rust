@@ -453,7 +453,7 @@ pub trait Labeller<'a,N,E> {
     /// The label need not be unique, and may be the empty string; the
     /// default is just the output from `node_id`.
     fn node_label(&'a self, n: &N) -> LabelText<'a> {
-        LabelStr(self.node_id(n).name)
+        LabelStr(self.node_id(n).name())
     }
 
     /// Maps `e` to a label that will be used in the rendered output.
@@ -467,6 +467,14 @@ pub trait Labeller<'a,N,E> {
     /// Maps `n` to a style that will be used in the rendered output.
     fn node_style(&'a self, _n: &N) -> Style {
         Style::None
+    }
+
+    /// Maps `n` to one of the [graphviz `color` names][1]. If `None`
+    /// is returned, no `color` attribute is specified.
+    ///
+    /// [1]: https://graphviz.gitlab.io/_pages/doc/info/colors.html
+    fn node_color(&'a self, _node: &N) -> Option<LabelText<'a>> {
+        None
     }
 
     /// Maps `e` to arrow style that will be used on the end of an edge.
@@ -484,6 +492,14 @@ pub trait Labeller<'a,N,E> {
     /// Maps `e` to a style that will be used in the rendered output.
     fn edge_style(&'a self, _e: &E) -> Style {
         Style::None
+    }
+
+    /// Maps `e` to one of the [graphviz `color` names][1]. If `None`
+    /// is returned, no `color` attribute is specified.
+    ///
+    /// [1]: https://graphviz.gitlab.io/_pages/doc/info/colors.html
+    fn edge_color(&'a self, _e: &E) -> Option<LabelText<'a>> {
+        None
     }
 
     /// The kind of graph, defaults to `Kind::Digraph`.
@@ -879,7 +895,9 @@ pub enum RenderOption {
     NoEdgeLabels,
     NoNodeLabels,
     NoEdgeStyles,
+    NoEdgeColors,
     NoNodeStyles,
+    NoNodeColors,
     NoArrows,
 }
 
@@ -925,6 +943,8 @@ pub fn render_opts<'a,
 
     try!(writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_slice(), " {"]));
     for n in g.nodes().iter() {
+        let colorstring;
+
         try!(indent(w));
         let id = g.node_id(n);
 
@@ -946,6 +966,16 @@ pub fn render_opts<'a,
             text.push("\"]");
         }
 
+        let color = g.node_color(n);
+        if !options.contains(&RenderOption::NoNodeColors) {
+            if let Some(c) = color {
+                colorstring = c.to_dot_string();
+                text.push("[color=");
+                text.push(&colorstring);
+                text.push("]");
+            }
+        }
+
         if let Some(s) = g.node_shape(n) {
             shape = s.to_dot_string();
             text.push("[shape=");
@@ -958,6 +988,7 @@ pub fn render_opts<'a,
     }
 
     for e in g.edges().iter() {
+        let colorstring;
         let escaped_label = &g.edge_label(e).to_dot_string();
         let start_arrow = g.edge_start_arrow(e);
         let end_arrow = g.edge_end_arrow(e);
@@ -985,6 +1016,16 @@ pub fn render_opts<'a,
             text.push("[style=\"");
             text.push(style.as_slice());
             text.push("\"]");
+        }
+
+        let color = g.edge_color(e);
+        if !options.contains(&RenderOption::NoEdgeColors) {
+            if let Some(c) = color {
+                colorstring = c.to_dot_string();
+                text.push("[color=");
+                text.push(&colorstring);
+                text.push("]");
+            }
         }
 
         if !options.contains(&RenderOption::NoArrows) &&
@@ -1029,9 +1070,10 @@ mod tests {
         style: Style,
         start_arrow: Arrow,
         end_arrow: Arrow,
+        color: Option<&'static str>,
     }
 
-    fn edge(from: usize, to: usize, label: &'static str, style: Style) -> Edge {
+    fn edge(from: usize, to: usize, label: &'static str, style: Style, color: Option<&'static str>) -> Edge {
         Edge {
             from: from,
             to: to,
@@ -1039,11 +1081,13 @@ mod tests {
             style: style,
             start_arrow: Arrow::default(),
             end_arrow: Arrow::default(),
+            color: color,
+
         }
     }
 
     fn edge_with_arrows(from: usize, to: usize, label: &'static str, style:Style,
-        start_arrow: Arrow, end_arrow: Arrow) -> Edge {
+        start_arrow: Arrow, end_arrow: Arrow, color: Option<&'static str>) -> Edge {
         Edge {
             from: from,
             to: to,
@@ -1051,6 +1095,7 @@ mod tests {
             style: style,
             start_arrow: start_arrow,
             end_arrow: end_arrow,
+            color: color,
         }
     }
 
@@ -1090,7 +1135,7 @@ mod tests {
     type Trivial = NodeLabels<&'static str>;
 
     impl NodeLabels<&'static str> {
-        fn to_opt_strs(self) -> Vec<Option<&'static str>> {
+        fn into_opt_strs(self) -> Vec<Option<&'static str>> {
             match self {
                 UnlabelledNodes(len) => vec![None; len],
                 AllNodesLabelled(lbls) => lbls.into_iter().map(|l| Some(l)).collect(),
@@ -1116,7 +1161,7 @@ mod tests {
             let count = node_labels.len();
             LabelledGraph {
                 name: name,
-                node_labels: node_labels.to_opt_strs(),
+                node_labels: node_labels.into_opt_strs(),
                 edges: edges,
                 node_styles: match node_styles {
                     Some(nodes) => nodes,
@@ -1149,10 +1194,10 @@ mod tests {
         fn node_label(&'a self, n: &Node) -> LabelText<'a> {
             match self.node_labels[*n] {
                 Some(ref l) => LabelStr((*l).into()),
-                None        => LabelStr(id_name(n).name()),
+                None => LabelStr(id_name(n).name()),
             }
         }
-        fn edge_label(&'a self, e: & &'a Edge) -> LabelText<'a> {
+        fn edge_label(&'a self, e: &&'a Edge) -> LabelText<'a> {
             LabelStr(e.label.into())
         }
         fn node_style(&'a self, n: &Node) -> Style {
@@ -1161,7 +1206,15 @@ mod tests {
         fn edge_style(&'a self, e: &&'a Edge) -> Style {
             e.style
         }
-
+        fn edge_color(&'a self, e: &&'a Edge) -> Option<LabelText<'a>>
+        {
+            match e.color {
+                Some(l) => {
+                    Some(LabelStr((*l).into()))
+                },
+                None => None,
+            }
+        }
         fn edge_end_arrow(&'a self, e: &&'a Edge) -> Arrow {
             e.end_arrow.clone()
         }
@@ -1183,9 +1236,21 @@ mod tests {
                 LabelStr(s) | EscStr(s) | HtmlStr(s) => EscStr(s),
             }
         }
+        fn node_color(&'a self, n: &Node) -> Option<LabelText<'a>> {
+            match self.graph.node_color(n) {
+                Some(LabelStr(s)) | Some(EscStr(s)) | Some(HtmlStr(s)) => Some(EscStr(s)),
+                None => None,
+            }
+        }
         fn edge_label(&'a self, e: &&'a Edge) -> LabelText<'a> {
             match self.graph.edge_label(e) {
                 LabelStr(s) | EscStr(s) | HtmlStr(s) => EscStr(s),
+            }
+        }
+        fn edge_color(&'a self, e: &&'a Edge) -> Option<LabelText<'a>> {
+            match self.graph.edge_color(e) {
+                Some(LabelStr(s)) | Some(EscStr(s)) | Some(HtmlStr(s)) => Some(EscStr(s)),
+                None => None,
             }
         }
     }
@@ -1270,7 +1335,7 @@ r#"digraph single_node {
         let labels: Trivial = UnlabelledNodes(2);
         let result = test_input(LabelledGraph::new("single_edge",
                                                    labels,
-                                                   vec![edge(0, 1, "E", Style::None)],
+                                                   vec![edge(0, 1, "E", Style::None, None)],
                                                    None));
         assert_eq!(result.unwrap(),
 r#"digraph single_edge {
@@ -1286,13 +1351,13 @@ r#"digraph single_edge {
         let labels: Trivial = UnlabelledNodes(2);
         let result = test_input(LabelledGraph::new("single_edge",
                                                    labels,
-                                                   vec![edge(0, 1, "E", Style::Bold)],
+                                                   vec![edge(0, 1, "E", Style::Bold, Some("red"))],
                                                    None));
         assert_eq!(result.unwrap(),
 r#"digraph single_edge {
     N0[label="N0"];
     N1[label="N1"];
-    N0 -> N1[label="E"][style="bold"];
+    N0 -> N1[label="E"][style="bold"][color="red"];
 }
 "#);
     }
@@ -1303,7 +1368,7 @@ r#"digraph single_edge {
         let styles = Some(vec![Style::None, Style::Dotted]);
         let result = test_input(LabelledGraph::new("test_some_labelled",
                                                    labels,
-                                                   vec![edge(0, 1, "A-1", Style::None)],
+                                                   vec![edge(0, 1, "A-1", Style::None, None)],
                                                    styles));
         assert_eq!(result.unwrap(),
 r#"digraph test_some_labelled {
@@ -1319,7 +1384,7 @@ r#"digraph test_some_labelled {
         let labels: Trivial = UnlabelledNodes(1);
         let r = test_input(LabelledGraph::new("single_cyclic_node",
                                               labels,
-                                              vec![edge(0, 0, "E", Style::None)],
+                                              vec![edge(0, 0, "E", Style::None, None)],
                                               None));
         assert_eq!(r.unwrap(),
 r#"digraph single_cyclic_node {
@@ -1334,10 +1399,10 @@ r#"digraph single_cyclic_node {
         let labels = AllNodesLabelled(vec!("{x,y}", "{x}", "{y}", "{}"));
         let r = test_input(LabelledGraph::new("hasse_diagram",
                                               labels,
-                                              vec![edge(0, 1, "", Style::None),
-                                                   edge(0, 2, "", Style::None),
-                                                   edge(1, 3, "", Style::None),
-                                                   edge(2, 3, "", Style::None)],
+                                              vec![edge(0, 1, "", Style::None, Some("green")),
+                                                   edge(0, 2, "", Style::None, Some("blue")),
+                                                   edge(1, 3, "", Style::None, Some("red")),
+                                                   edge(2, 3, "", Style::None, Some("black"))],
                                               None));
         assert_eq!(r.unwrap(),
 r#"digraph hasse_diagram {
@@ -1345,10 +1410,10 @@ r#"digraph hasse_diagram {
     N1[label="{x}"];
     N2[label="{y}"];
     N3[label="{}"];
-    N0 -> N1[label=""];
-    N0 -> N2[label=""];
-    N1 -> N3[label=""];
-    N2 -> N3[label=""];
+    N0 -> N1[label=""][color="green"];
+    N0 -> N2[label=""][color="blue"];
+    N1 -> N3[label=""][color="red"];
+    N2 -> N3[label=""][color="black"];
 }
 "#);
     }
@@ -1371,10 +1436,10 @@ r#"digraph hasse_diagram {
 
         let g = LabelledGraphWithEscStrs::new("syntax_tree",
                                               labels,
-                                              vec![edge(0, 1, "then", Style::None),
-                                                   edge(0, 2, "else", Style::None),
-                                                   edge(1, 3, ";", Style::None),
-                                                   edge(2, 3, ";", Style::None)]);
+                                              vec![edge(0, 1, "then", Style::None, None),
+                                                   edge(0, 2, "else", Style::None, None),
+                                                   edge(1, 3, ";", Style::None, None),
+                                                   edge(2, 3, ";", Style::None, None)]);
 
         render(&g, &mut writer).unwrap();
         let mut r = String::new();
@@ -1411,7 +1476,7 @@ r#"digraph syntax_tree {
         let end    = Arrow::from_arrow(ArrowShape::crow());
         let result = test_input(LabelledGraph::new("test_some_labelled",
                                                    labels,
-                                                   vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end)],
+                                                   vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end, None)],
                                                    styles));
         assert_eq!(result.unwrap(),
 r#"digraph test_some_labelled {
@@ -1430,7 +1495,7 @@ r#"digraph test_some_labelled {
         let end    = Arrow::from_arrow(ArrowShape::Crow(Side::Left));
         let result = test_input(LabelledGraph::new("test_some_labelled",
                                                    labels,
-                                                   vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end)],
+                                                   vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end, None)],
                                                    styles));
         assert_eq!(result.unwrap(),
 r#"digraph test_some_labelled {
