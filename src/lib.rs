@@ -85,9 +85,9 @@
 //!         Cow::Borrowed(&edges[..])
 //!     }
 //!
-//!     fn source(&self, e: &Ed) -> Nd { let &(s,_) = e; s }
+//!     fn source(&self, e: &Ed) -> Nd { e.0 }
 //!
-//!     fn target(&self, e: &Ed) -> Nd { let &(_,t) = e; t }
+//!     fn target(&self, e: &Ed) -> Nd { e.1 }
 //! }
 //!
 //! # pub fn main() { render_to(&mut Vec::new()) }
@@ -177,8 +177,8 @@
 //! impl<'a> dot::GraphWalk<'a, Nd, Ed<'a>> for Graph {
 //!     fn nodes(&self) -> dot::Nodes<'a,Nd> { (0..self.nodes.len()).collect() }
 //!     fn edges(&'a self) -> dot::Edges<'a,Ed<'a>> { self.edges.iter().collect() }
-//!     fn source(&self, e: &Ed) -> Nd { let & &(s,_) = e; s }
-//!     fn target(&self, e: &Ed) -> Nd { let & &(_,t) = e; t }
+//!     fn source(&self, e: &Ed) -> Nd { e.0 }
+//!     fn target(&self, e: &Ed) -> Nd { e.1 }
 //! }
 //!
 //! # pub fn main() { render_to(&mut Vec::new()) }
@@ -240,8 +240,8 @@
 //!                           (j, &self.nodes[j][..])))
 //!             .collect()
 //!     }
-//!     fn source(&self, e: &Ed<'a>) -> Nd<'a> { let &(s,_) = e; s }
-//!     fn target(&self, e: &Ed<'a>) -> Nd<'a> { let &(_,t) = e; t }
+//!     fn source(&self, e: &Ed<'a>) -> Nd<'a> { e.0 }
+//!     fn target(&self, e: &Ed<'a>) -> Nd<'a> { e.1 }
 //! }
 //!
 //! # pub fn main() { render_to(&mut Vec::new()) }
@@ -453,7 +453,7 @@ pub trait Labeller<'a,N,E> {
     /// The label need not be unique, and may be the empty string; the
     /// default is just the output from `node_id`.
     fn node_label(&'a self, n: &N) -> LabelText<'a> {
-        LabelStr(self.node_id(n).name)
+        LabelStr(self.node_id(n).name())
     }
 
     /// Maps `e` to a label that will be used in the rendered output.
@@ -469,21 +469,43 @@ pub trait Labeller<'a,N,E> {
         Style::None
     }
 
-    /// Maps `e` to arrow style that will be used on the end of an edge.
-    /// Defaults to normal.
-    fn edge_end_arrow(&'a self, _e: &E) -> Arrow {
-        Arrow::normal()
+    /// Maps `n` to one of the [graphviz `color` names][1]. If `None`
+    /// is returned, no `color` attribute is specified.
+    ///
+    /// [1]: https://graphviz.gitlab.io/_pages/doc/info/colors.html
+    fn node_color(&'a self, _node: &N) -> Option<LabelText<'a>> {
+        None
     }
 
     /// Maps `e` to arrow style that will be used on the end of an edge.
-    /// Defaults to no arrow style.
+    /// Defaults to default arrow style.
+    fn edge_end_arrow(&'a self, _e: &E) -> Arrow {
+        Arrow::default()
+    }
+
+    /// Maps `e` to arrow style that will be used on the end of an edge.
+    /// Defaults to default arrow style.
     fn edge_start_arrow(&'a self, _e: &E) -> Arrow {
-        Arrow::none()
+        Arrow::default()
     }
 
     /// Maps `e` to a style that will be used in the rendered output.
     fn edge_style(&'a self, _e: &E) -> Style {
         Style::None
+    }
+
+    /// Maps `e` to one of the [graphviz `color` names][1]. If `None`
+    /// is returned, no `color` attribute is specified.
+    ///
+    /// [1]: https://graphviz.gitlab.io/_pages/doc/info/colors.html
+    fn edge_color(&'a self, _e: &E) -> Option<LabelText<'a>> {
+        None
+    }
+
+    /// The kind of graph, defaults to `Kind::Digraph`.
+    #[inline]
+    fn kind(&self) -> Kind {
+        Kind::Digraph
     }
 }
 
@@ -586,6 +608,17 @@ pub struct Arrow {
 use self::ArrowShape::*;
 
 impl Arrow {
+    /// Return `true` if this is a default arrow.
+    fn is_default(&self) -> bool {
+        self.arrows.is_empty()
+    }
+
+    /// Arrow constructor which returns a default arrow
+    pub fn default() -> Arrow {
+        Arrow {
+            arrows: vec![],
+        }
+    }
 
     /// Arrow constructor which returns an empty arrow
     pub fn none() -> Arrow {
@@ -597,7 +630,7 @@ impl Arrow {
     /// Arrow constructor which returns a regular triangle arrow, without modifiers
     pub fn normal() -> Arrow {
         Arrow {
-            arrows: vec![Normal(Fill::Filled, Side::Both)],
+            arrows: vec![ArrowShape::normal()]
         }
     }
 
@@ -803,10 +836,37 @@ impl ArrowShape {
 pub type Nodes<'a,N> = Cow<'a,[N]>;
 pub type Edges<'a,E> = Cow<'a,[E]>;
 
+/// Graph kind determines if `digraph` or `graph` is used as keyword
+/// for the graph.
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum Kind {
+    Digraph,
+    Graph,
+}
+
+impl Kind {
+    /// The keyword to use to introduce the graph.
+    /// Determines which edge syntax must be used, and default style.
+    fn keyword(&self) -> &'static str {
+        match *self {
+            Kind::Digraph => "digraph",
+            Kind::Graph => "graph"
+        }
+    }
+
+    /// The edgeop syntax to use for this graph kind.
+    fn edgeop(&self) -> &'static str {
+        match *self {
+            Kind::Digraph => "->",
+            Kind::Graph => "--",
+        }
+    }
+}
+
 // (The type parameters in GraphWalk should be associated items,
 // when/if Rust supports such.)
 
-/// GraphWalk is an abstraction over a directed graph = (nodes,edges)
+/// GraphWalk is an abstraction over a graph = (nodes,edges)
 /// made up of node handles `N` and edge handles `E`, where each `E`
 /// can be mapped to its source and target nodes.
 ///
@@ -835,7 +895,9 @@ pub enum RenderOption {
     NoEdgeLabels,
     NoNodeLabels,
     NoEdgeStyles,
+    NoEdgeColors,
     NoNodeStyles,
+    NoNodeColors,
     NoArrows,
 }
 
@@ -844,7 +906,7 @@ pub fn default_options() -> Vec<RenderOption> {
     vec![]
 }
 
-/// Renders directed graph `g` into the writer `w` in DOT syntax.
+/// Renders graph `g` into the writer `w` in DOT syntax.
 /// (Simple wrapper around `render_opts` that passes a default set of options.)
 pub fn render<'a,
               N: Clone + 'a,
@@ -857,7 +919,7 @@ pub fn render<'a,
     render_opts(g, w, &[])
 }
 
-/// Renders directed graph `g` into the writer `w` in DOT syntax.
+/// Renders graph `g` into the writer `w` in DOT syntax.
 /// (Main entry point for the library.)
 pub fn render_opts<'a,
                    N: Clone + 'a,
@@ -879,8 +941,10 @@ pub fn render_opts<'a,
         w.write_all(b"    ")
     }
 
-    try!(writeln(w, &["digraph ", g.graph_id().as_slice(), " {"]));
+    try!(writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_slice(), " {"]));
     for n in g.nodes().iter() {
+        let colorstring;
+
         try!(indent(w));
         let id = g.node_id(n);
 
@@ -902,6 +966,16 @@ pub fn render_opts<'a,
             text.push("\"]");
         }
 
+        let color = g.node_color(n);
+        if !options.contains(&RenderOption::NoNodeColors) {
+            if let Some(c) = color {
+                colorstring = c.to_dot_string();
+                text.push("[color=");
+                text.push(&colorstring);
+                text.push("]");
+            }
+        }
+
         if let Some(s) = g.node_shape(n) {
             shape = s.to_dot_string();
             text.push("[shape=");
@@ -914,9 +988,12 @@ pub fn render_opts<'a,
     }
 
     for e in g.edges().iter() {
+        let colorstring;
         let escaped_label = &g.edge_label(e).to_dot_string();
-        let start_arrow = &g.edge_start_arrow(e).to_dot_string();
-        let end_arrow = &g.edge_end_arrow(e).to_dot_string();
+        let start_arrow = g.edge_start_arrow(e);
+        let end_arrow = g.edge_end_arrow(e);
+        let start_arrow_s = start_arrow.to_dot_string();
+        let end_arrow_s = end_arrow.to_dot_string();
 
         try!(indent(w));
         let source = g.source(e);
@@ -924,7 +1001,9 @@ pub fn render_opts<'a,
         let source_id = g.node_id(&source);
         let target_id = g.node_id(&target);
 
-        let mut text = vec![source_id.as_slice(), " -> ", target_id.as_slice()];
+        let mut text = vec![source_id.as_slice(), " ",
+                            g.kind().edgeop(), " ",
+                            target_id.as_slice()];
 
         if !options.contains(&RenderOption::NoEdgeLabels) {
             text.push("[label=");
@@ -939,16 +1018,27 @@ pub fn render_opts<'a,
             text.push("\"]");
         }
 
-        if !options.contains(&RenderOption::NoArrows) &&  (start_arrow != "none" || end_arrow != "normal") {
+        let color = g.edge_color(e);
+        if !options.contains(&RenderOption::NoEdgeColors) {
+            if let Some(c) = color {
+                colorstring = c.to_dot_string();
+                text.push("[color=");
+                text.push(&colorstring);
+                text.push("]");
+            }
+        }
+
+        if !options.contains(&RenderOption::NoArrows) &&
+            (!start_arrow.is_default() || !end_arrow.is_default()) {
             text.push("[");
-            if end_arrow != "normal" {
+            if !end_arrow.is_default() {
                 text.push("arrowhead=\"");
-                text.push(end_arrow);
+                text.push(&end_arrow_s);
                 text.push("\"");
             }
-            if start_arrow != "none" {
+            if !start_arrow.is_default() {
                 text.push(" dir=\"both\" arrowtail=\"");
-                text.push(start_arrow);
+                text.push(&start_arrow_s);
                 text.push("\"");
             }
 
@@ -965,7 +1055,7 @@ pub fn render_opts<'a,
 #[cfg(test)]
 mod tests {
     use self::NodeLabels::*;
-    use super::{Id, Labeller, Nodes, Edges, GraphWalk, render, Style};
+    use super::{Id, Labeller, Nodes, Edges, GraphWalk, render, Style, Kind};
     use super::LabelText::{self, LabelStr, EscStr, HtmlStr};
     use super::{Arrow, ArrowShape, Side};
     use std::io;
@@ -980,21 +1070,24 @@ mod tests {
         style: Style,
         start_arrow: Arrow,
         end_arrow: Arrow,
+        color: Option<&'static str>,
     }
 
-    fn edge(from: usize, to: usize, label: &'static str, style: Style) -> Edge {
+    fn edge(from: usize, to: usize, label: &'static str, style: Style, color: Option<&'static str>) -> Edge {
         Edge {
             from: from,
             to: to,
             label: label,
             style: style,
-            start_arrow: Arrow::none(),
-            end_arrow: Arrow::normal(),
+            start_arrow: Arrow::default(),
+            end_arrow: Arrow::default(),
+            color: color,
+
         }
     }
 
     fn edge_with_arrows(from: usize, to: usize, label: &'static str, style:Style,
-        start_arrow: Arrow, end_arrow: Arrow) -> Edge {
+        start_arrow: Arrow, end_arrow: Arrow, color: Option<&'static str>) -> Edge {
         Edge {
             from: from,
             to: to,
@@ -1002,6 +1095,7 @@ mod tests {
             style: style,
             start_arrow: start_arrow,
             end_arrow: end_arrow,
+            color: color,
         }
     }
 
@@ -1041,7 +1135,7 @@ mod tests {
     type Trivial = NodeLabels<&'static str>;
 
     impl NodeLabels<&'static str> {
-        fn to_opt_strs(self) -> Vec<Option<&'static str>> {
+        fn into_opt_strs(self) -> Vec<Option<&'static str>> {
             match self {
                 UnlabelledNodes(len) => vec![None; len],
                 AllNodesLabelled(lbls) => lbls.into_iter().map(|l| Some(l)).collect(),
@@ -1067,7 +1161,7 @@ mod tests {
             let count = node_labels.len();
             LabelledGraph {
                 name: name,
-                node_labels: node_labels.to_opt_strs(),
+                node_labels: node_labels.into_opt_strs(),
                 edges: edges,
                 node_styles: match node_styles {
                     Some(nodes) => nodes,
@@ -1100,10 +1194,10 @@ mod tests {
         fn node_label(&'a self, n: &Node) -> LabelText<'a> {
             match self.node_labels[*n] {
                 Some(ref l) => LabelStr((*l).into()),
-                None        => LabelStr(id_name(n).name()),
+                None => LabelStr(id_name(n).name()),
             }
         }
-        fn edge_label(&'a self, e: & &'a Edge) -> LabelText<'a> {
+        fn edge_label(&'a self, e: &&'a Edge) -> LabelText<'a> {
             LabelStr(e.label.into())
         }
         fn node_style(&'a self, n: &Node) -> Style {
@@ -1112,7 +1206,15 @@ mod tests {
         fn edge_style(&'a self, e: &&'a Edge) -> Style {
             e.style
         }
-
+        fn edge_color(&'a self, e: &&'a Edge) -> Option<LabelText<'a>>
+        {
+            match e.color {
+                Some(l) => {
+                    Some(LabelStr((*l).into()))
+                },
+                None => None,
+            }
+        }
         fn edge_end_arrow(&'a self, e: &&'a Edge) -> Arrow {
             e.end_arrow.clone()
         }
@@ -1120,7 +1222,6 @@ mod tests {
         fn edge_start_arrow(&'a self, e: &&'a Edge) -> Arrow {
             e.start_arrow.clone()
         }
-
     }
 
     impl<'a> Labeller<'a, Node, &'a Edge> for LabelledGraphWithEscStrs {
@@ -1135,9 +1236,21 @@ mod tests {
                 LabelStr(s) | EscStr(s) | HtmlStr(s) => EscStr(s),
             }
         }
+        fn node_color(&'a self, n: &Node) -> Option<LabelText<'a>> {
+            match self.graph.node_color(n) {
+                Some(LabelStr(s)) | Some(EscStr(s)) | Some(HtmlStr(s)) => Some(EscStr(s)),
+                None => None,
+            }
+        }
         fn edge_label(&'a self, e: &&'a Edge) -> LabelText<'a> {
             match self.graph.edge_label(e) {
                 LabelStr(s) | EscStr(s) | HtmlStr(s) => EscStr(s),
+            }
+        }
+        fn edge_color(&'a self, e: &&'a Edge) -> Option<LabelText<'a>> {
+            match self.graph.edge_color(e) {
+                Some(LabelStr(s)) | Some(EscStr(s)) | Some(HtmlStr(s)) => Some(EscStr(s)),
+                None => None,
             }
         }
     }
@@ -1222,7 +1335,7 @@ r#"digraph single_node {
         let labels: Trivial = UnlabelledNodes(2);
         let result = test_input(LabelledGraph::new("single_edge",
                                                    labels,
-                                                   vec![edge(0, 1, "E", Style::None)],
+                                                   vec![edge(0, 1, "E", Style::None, None)],
                                                    None));
         assert_eq!(result.unwrap(),
 r#"digraph single_edge {
@@ -1238,13 +1351,13 @@ r#"digraph single_edge {
         let labels: Trivial = UnlabelledNodes(2);
         let result = test_input(LabelledGraph::new("single_edge",
                                                    labels,
-                                                   vec![edge(0, 1, "E", Style::Bold)],
+                                                   vec![edge(0, 1, "E", Style::Bold, Some("red"))],
                                                    None));
         assert_eq!(result.unwrap(),
 r#"digraph single_edge {
     N0[label="N0"];
     N1[label="N1"];
-    N0 -> N1[label="E"][style="bold"];
+    N0 -> N1[label="E"][style="bold"][color="red"];
 }
 "#);
     }
@@ -1255,7 +1368,7 @@ r#"digraph single_edge {
         let styles = Some(vec![Style::None, Style::Dotted]);
         let result = test_input(LabelledGraph::new("test_some_labelled",
                                                    labels,
-                                                   vec![edge(0, 1, "A-1", Style::None)],
+                                                   vec![edge(0, 1, "A-1", Style::None, None)],
                                                    styles));
         assert_eq!(result.unwrap(),
 r#"digraph test_some_labelled {
@@ -1271,7 +1384,7 @@ r#"digraph test_some_labelled {
         let labels: Trivial = UnlabelledNodes(1);
         let r = test_input(LabelledGraph::new("single_cyclic_node",
                                               labels,
-                                              vec![edge(0, 0, "E", Style::None)],
+                                              vec![edge(0, 0, "E", Style::None, None)],
                                               None));
         assert_eq!(r.unwrap(),
 r#"digraph single_cyclic_node {
@@ -1286,10 +1399,10 @@ r#"digraph single_cyclic_node {
         let labels = AllNodesLabelled(vec!("{x,y}", "{x}", "{y}", "{}"));
         let r = test_input(LabelledGraph::new("hasse_diagram",
                                               labels,
-                                              vec![edge(0, 1, "", Style::None),
-                                                   edge(0, 2, "", Style::None),
-                                                   edge(1, 3, "", Style::None),
-                                                   edge(2, 3, "", Style::None)],
+                                              vec![edge(0, 1, "", Style::None, Some("green")),
+                                                   edge(0, 2, "", Style::None, Some("blue")),
+                                                   edge(1, 3, "", Style::None, Some("red")),
+                                                   edge(2, 3, "", Style::None, Some("black"))],
                                               None));
         assert_eq!(r.unwrap(),
 r#"digraph hasse_diagram {
@@ -1297,10 +1410,10 @@ r#"digraph hasse_diagram {
     N1[label="{x}"];
     N2[label="{y}"];
     N3[label="{}"];
-    N0 -> N1[label=""];
-    N0 -> N2[label=""];
-    N1 -> N3[label=""];
-    N2 -> N3[label=""];
+    N0 -> N1[label=""][color="green"];
+    N0 -> N2[label=""][color="blue"];
+    N1 -> N3[label=""][color="red"];
+    N2 -> N3[label=""][color="black"];
 }
 "#);
     }
@@ -1323,10 +1436,10 @@ r#"digraph hasse_diagram {
 
         let g = LabelledGraphWithEscStrs::new("syntax_tree",
                                               labels,
-                                              vec![edge(0, 1, "then", Style::None),
-                                                   edge(0, 2, "else", Style::None),
-                                                   edge(1, 3, ";", Style::None),
-                                                   edge(2, 3, ";", Style::None)]);
+                                              vec![edge(0, 1, "then", Style::None, None),
+                                                   edge(0, 2, "else", Style::None, None),
+                                                   edge(1, 3, ";", Style::None, None),
+                                                   edge(2, 3, ";", Style::None, None)]);
 
         render(&g, &mut writer).unwrap();
         let mut r = String::new();
@@ -1359,11 +1472,11 @@ r#"digraph syntax_tree {
     fn test_some_arrow() {
         let labels: Trivial = SomeNodesLabelled(vec![Some("A"), None]);
         let styles = Some(vec![Style::None, Style::Dotted]);
-        let start  = Arrow::none();
+        let start  = Arrow::default();
         let end    = Arrow::from_arrow(ArrowShape::crow());
         let result = test_input(LabelledGraph::new("test_some_labelled",
                                                    labels,
-                                                   vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end)],
+                                                   vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end, None)],
                                                    styles));
         assert_eq!(result.unwrap(),
 r#"digraph test_some_labelled {
@@ -1382,7 +1495,7 @@ r#"digraph test_some_labelled {
         let end    = Arrow::from_arrow(ArrowShape::Crow(Side::Left));
         let result = test_input(LabelledGraph::new("test_some_labelled",
                                                    labels,
-                                                   vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end)],
+                                                   vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end, None)],
                                                    styles));
         assert_eq!(result.unwrap(),
 r#"digraph test_some_labelled {
@@ -1400,5 +1513,106 @@ r#"digraph test_some_labelled {
             Ok(_) => panic!("graphviz id suddenly allows spaces, brackets and stuff"),
             Err(..) => {}
         }
+    }
+
+    type SimpleEdge = (Node, Node);
+
+    struct DefaultStyleGraph {
+        /// The name for this graph. Used for labelling generated graph
+        name: &'static str,
+        nodes: usize,
+        edges: Vec<SimpleEdge>,
+        kind: Kind,
+    }
+
+    impl DefaultStyleGraph {
+        fn new(name: &'static str,
+               nodes: usize,
+               edges: Vec<SimpleEdge>,
+               kind: Kind)
+               -> DefaultStyleGraph {
+            assert!(!name.is_empty());
+            DefaultStyleGraph {
+                name: name,
+                nodes: nodes,
+                edges: edges,
+                kind: kind,
+            }
+        }
+    }
+
+    impl<'a> Labeller<'a, Node, &'a SimpleEdge> for DefaultStyleGraph {
+        fn graph_id(&'a self) -> Id<'a> {
+            Id::new(&self.name[..]).unwrap()
+        }
+        fn node_id(&'a self, n: &Node) -> Id<'a> {
+            id_name(n)
+        }
+        fn kind(&self) -> Kind {
+            self.kind
+        }
+    }
+
+    impl<'a> GraphWalk<'a, Node, &'a SimpleEdge> for DefaultStyleGraph {
+        fn nodes(&'a self) -> Nodes<'a, Node> {
+            (0..self.nodes).collect()
+        }
+        fn edges(&'a self) -> Edges<'a, &'a SimpleEdge> {
+            self.edges.iter().collect()
+        }
+        fn source(&'a self, edge: &&'a SimpleEdge) -> Node {
+            edge.0
+        }
+        fn target(&'a self, edge: &&'a SimpleEdge) -> Node {
+            edge.1
+        }
+    }
+
+    fn test_input_default(g: DefaultStyleGraph) -> io::Result<String> {
+        let mut writer = Vec::new();
+        render(&g, &mut writer).unwrap();
+        let mut s = String::new();
+        try!(Read::read_to_string(&mut &*writer, &mut s));
+        Ok(s)
+    }
+
+    #[test]
+    fn default_style_graph() {
+        let r = test_input_default(
+            DefaultStyleGraph::new("g", 4,
+                                   vec![(0, 1), (0, 2), (1, 3), (2, 3)],
+                                   Kind::Graph));
+        assert_eq!(r.unwrap(),
+r#"graph g {
+    N0[label="N0"];
+    N1[label="N1"];
+    N2[label="N2"];
+    N3[label="N3"];
+    N0 -- N1[label=""];
+    N0 -- N2[label=""];
+    N1 -- N3[label=""];
+    N2 -- N3[label=""];
+}
+"#);
+    }
+
+    #[test]
+    fn default_style_digraph() {
+        let r = test_input_default(
+            DefaultStyleGraph::new("di", 4,
+                                   vec![(0, 1), (0, 2), (1, 3), (2, 3)],
+                                   Kind::Digraph));
+        assert_eq!(r.unwrap(),
+r#"digraph di {
+    N0[label="N0"];
+    N1[label="N1"];
+    N2[label="N2"];
+    N3[label="N3"];
+    N0 -> N1[label=""];
+    N0 -> N2[label=""];
+    N1 -> N3[label=""];
+    N2 -> N3[label=""];
+}
+"#);
     }
 }
