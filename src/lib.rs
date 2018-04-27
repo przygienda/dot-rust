@@ -309,6 +309,7 @@ pub enum LabelText<'a> {
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Style {
     None,
+    Invisible,
     Solid,
     Dashed,
     Dotted,
@@ -324,6 +325,7 @@ impl Style {
     pub fn as_slice(self) -> &'static str {
         match self {
             Style::None => "",
+            Style::Invisible => "invis",
             Style::Solid => "solid",
             Style::Dashed => "dashed",
             Style::Dotted => "dotted",
@@ -1502,6 +1504,21 @@ r#"digraph test_some_labelled {
     N0[label="A"];
     N1[label="N1"][style="dotted"];
     N0 -> N1[label="A-1"][arrowhead="lcrow" dir="both" arrowtail="tee"];
+}
+"#);
+    }
+
+    #[test]
+    fn invisible() {
+        let labels: Trivial = UnlabelledNodes(1);
+        let r = test_input(LabelledGraph::new("single_cyclic_node",
+                                              labels,
+                                              vec![edge(0, 0, "E", Style::Invisible, None)],
+                                              Some(vec![Style::Invisible])));
+        assert_eq!(r.unwrap(),
+                   r#"digraph single_cyclic_node {
+    N0[label="N0"][style="invis"];
+    N0 -> N0[label="E"][style="invis"];
 }
 "#);
     }
