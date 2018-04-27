@@ -1,6 +1,6 @@
 [package]
 name = "dot"
-version = "0.1.4-dev"
+version = "0.1.4"
 authors = ["The Rust Project Developers", "Graham Dennis <graham.dennis@gmail.com>"]
 description = "A library for generating Graphviz DOT language files for graphs."
 readme = "README.md"
