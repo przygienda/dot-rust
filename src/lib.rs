@@ -429,6 +429,10 @@ pub enum Style {
 }
 
 impl Style {
+    pub fn as_slice(&self) -> &str {
+        self.as_str()
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             Self::None => "",
@@ -542,6 +546,10 @@ impl<'a> Id<'a> {
 
     pub fn as_str(&'a self) -> &'a str {
         &self.name
+    }
+
+    pub fn as_slice(&'a self) -> &'a str {
+        &*self.name
     }
 
     pub fn name(self) -> Cow<'a, str> {
