@@ -8,24 +8,22 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-//! Generate files suitable for use with [Graphviz](http://www.graphviz.org/)
+//! Generate files suitable for use with [Graphviz](https://graphviz.org/)
 //!
 //! The `render` function generates output (e.g. an `output.dot` file) for
-//! use with [Graphviz](http://www.graphviz.org/) by walking a labelled
+//! use with [Graphviz](https://graphviz.org/) by walking a labelled
 //! graph. (Graphviz can then automatically lay out the nodes and edges
 //! of the graph, and also optionally render the graph as an image or
-//! other [output formats](
-//! http://www.graphviz.org/content/output-formats), such as SVG.)
+//! other [output formats](https://graphviz.org/docs/outputs), such as SVG.)
 //!
 //! Rather than impose some particular graph data structure on clients,
 //! this library exposes two traits that clients can implement on their
 //! own structs before handing them over to the rendering function.
 //!
 //! Note: This library does not yet provide access to the full
-//! expressiveness of the [DOT language](
-//! http://www.graphviz.org/doc/info/lang.html). For example, there are
-//! many [attributes](http://www.graphviz.org/content/attrs) related to
-//! providing layout hints (e.g. left-to-right versus top-down, which
+//! expressiveness of the [DOT language](https://graphviz.org/doc/info/lang.html).
+//! For example, there are many [attributes](https://graphviz.org/doc/info/attrs.html)
+//! related to providing layout hints (e.g. left-to-right versus top-down, which
 //! algorithm to use, etc). The current intention of this library is to
 //! emit a human-readable .dot file with very regular structure suitable
 //! for easy post-processing.
@@ -258,9 +256,9 @@
 //!
 //! # References
 //!
-//! * [Graphviz](http://www.graphviz.org/)
+//! * [Graphviz](https://graphviz.org/)
 //!
-//! * [DOT language](http://www.graphviz.org/doc/info/lang.html)
+//! * [DOT language](https://graphviz.org/doc/info/lang.html)
 
 #![crate_name = "dot"]
 #![crate_type = "rlib"]
@@ -284,7 +282,7 @@ pub enum LabelText<'a> {
     LabelStr(Cow<'a, str>),
 
     /// This kind of label uses the graphviz label escString type:
-    /// http://www.graphviz.org/content/attrs#kescString
+    /// https://graphviz.org/docs/attr-types/escString
     ///
     /// Occurrences of backslashes (`\`) are not escaped; instead they
     /// are interpreted as initiating an escString escape sequence.
@@ -299,12 +297,12 @@ pub enum LabelText<'a> {
     /// printed exactly as given, but between `<` and `>`. **No
     /// escaping is performed.**
     ///
-    /// [html]: http://www.graphviz.org/content/node-shapes#html
+    /// [html]: https://graphviz.org/doc/info/shapes.html#html
     HtmlStr(Cow<'a, str>),
 }
 
 /// The style for a node or edge.
-/// See http://www.graphviz.org/doc/info/attrs.html#k:style for descriptions.
+/// See https://graphviz.org/doc/info/attrs.html#k:style for descriptions.
 /// Note that some of these are not valid for edges.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Style {
@@ -444,7 +442,7 @@ pub trait Labeller<'a,N,E> {
     /// Maps `n` to one of the [graphviz `shape` names][1]. If `None`
     /// is returned, no `shape` attribute is specified.
     ///
-    /// [1]: http://www.graphviz.org/content/node-shapes
+    /// [1]: https://graphviz.org/doc/info/shapes.html
     fn node_shape(&'a self, _node: &N) -> Option<LabelText<'a>> {
         None
     }
@@ -711,7 +709,7 @@ impl Side {
 
 
 /// This enumeration represents all possible arrow edge
-/// as defined in [grapviz documentation](http://www.graphviz.org/content/arrow-shapes).
+/// as defined in [graphviz documentation](https://graphviz.org/doc/info/arrows.html).
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub enum ArrowShape {
     /// No arrow will be displayed
