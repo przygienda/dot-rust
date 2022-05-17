@@ -272,6 +272,7 @@ use self::LabelText::*;
 use std::borrow::Cow;
 use std::io::prelude::*;
 use std::io;
+use std::collections::HashMap;
 
 /// The text for a graphviz label on a node or edge.
 pub enum LabelText<'a> {
@@ -504,6 +505,11 @@ pub trait Labeller<'a,N,E> {
         None
     }
 
+    /// Maps `n` to a set of arbritrary node attributes.
+    fn node_attrs(&'a self, _n: &N) -> HashMap<&str, &str> {
+        HashMap::default()
+    }
+
     /// Maps `e` to arrow style that will be used on the end of an edge.
     /// Defaults to default arrow style.
     fn edge_end_arrow(&'a self, _e: &E) -> Arrow {
@@ -529,6 +535,11 @@ pub trait Labeller<'a,N,E> {
         None
     }
 
+    /// Maps `e` to a set of arbritrary edge attributes.
+    fn edge_attrs(&'a self, _e: &E) -> HashMap<&str, &str> {
+        HashMap::default()
+    }
+ 
     /// The kind of graph, defaults to `Kind::Digraph`.
     #[inline]
     fn kind(&self) -> Kind {
@@ -1018,6 +1029,9 @@ pub fn render_opts<'a,
             text.push("]");
         }
 
+        let node_attrs = g.node_attrs(n).iter().map(|(name, value)| format!("[{name}={value}]")).collect::<Vec<String>>();
+        text.extend(node_attrs.iter().map(|s| s as &str));
+
         text.push(";");
         writeln(w, &text)?;
     }
@@ -1079,7 +1093,8 @@ pub fn render_opts<'a,
 
             text.push("]");
         }
-
+        let edge_attrs = g.edge_attrs(e).iter().map(|(name, value)| format!("[{name}={value}]")).collect::<Vec<String>>();
+        text.extend(edge_attrs.iter().map(|s| s as &str));
         text.push(";");
         writeln(w, &text)?;
     }
