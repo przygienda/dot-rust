@@ -372,6 +372,24 @@ pub struct Id<'a> {
     name: Cow<'a, str>,
 }
 
+#[derive(Debug)]
+pub enum IdError {
+    EmptyName,
+    InvalidStartChar(char),
+    InvalidChar(char)
+}
+
+impl std::fmt::Display for IdError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            IdError::EmptyName => write!(f, "Id cannot be empty"),
+            IdError::InvalidStartChar(c) => write!(f, "Id cannot begin with '{c}'"),
+            IdError::InvalidChar(c) => write!(f, "Id cannot contain '{c}'")
+        }
+    }
+}
+impl std::error::Error for IdError {}
+
 impl<'a> Id<'a> {
     /// Creates an `Id` named `name`.
     ///
@@ -387,19 +405,20 @@ impl<'a> Id<'a> {
     ///
     /// Passing an invalid string (containing spaces, brackets,
     /// quotes, ...) will return an empty `Err` value.
-    pub fn new<Name: Into<Cow<'a, str>>>(name: Name) -> Result<Id<'a>, ()> {
+    pub fn new<Name: Into<Cow<'a, str>>>(name: Name) -> Result<Id<'a>, IdError> {
         let name = name.into();
         {
             let mut chars = name.chars();
             match chars.next() {
                 Some(c) if is_letter_or_underscore(c) => {}
-                _ => return Err(()),
+                Some(c) => return Err(IdError::InvalidStartChar(c)),
+                _ => return Err(IdError::EmptyName)
             }
-            if !chars.all(is_constituent) {
-                return Err(())
+            if let Some(bad) = chars.find(|c| !is_constituent(*c)) {
+                return Err(IdError::InvalidChar(bad))
             }
         }
-        return Ok(Id{ name: name });
+        return Ok(Id{ name });
 
         fn is_letter_or_underscore(c: char) -> bool {
             in_range('a', c, 'z') || in_range('A', c, 'Z') || c == '_'
@@ -511,10 +530,10 @@ pub trait Labeller<'a,N,E> {
 /// Graphviz HTML label.
 pub fn escape_html(s: &str) -> String {
     s
-        .replace("&", "&amp;")
-        .replace("\"", "&quot;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
+        .replace('&', "&amp;")
+        .replace('"', "&quot;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 impl<'a> LabelText<'a> {
@@ -558,9 +577,9 @@ impl<'a> LabelText<'a> {
     /// This includes quotes or suitable delimeters.
     pub fn to_dot_string(&self) -> String {
         match self {
-            &LabelStr(ref s) => format!("\"{}\"", LabelText::escape_default(s)),
-            &EscStr(ref s) => format!("\"{}\"", LabelText::escape_str(&s[..])),
-            &HtmlStr(ref s) => format!("<{}>", s),
+            LabelStr(ref s) => format!("\"{}\"", LabelText::escape_default(s)),
+            EscStr(ref s) => format!("\"{}\"", LabelText::escape_str(&s[..])),
+            HtmlStr(ref s) => format!("<{}>", s),
         }
     }
 
@@ -650,25 +669,9 @@ impl Arrow {
 }
 
 
-impl Into<Arrow> for [ArrowShape; 2] {
-    fn into(self) -> Arrow {
-        Arrow {
-            arrows: vec![self[0], self[1]],
-        }
-    }
-}
-impl Into<Arrow> for [ArrowShape; 3] {
-    fn into(self) -> Arrow {
-        Arrow {
-            arrows: vec![self[0], self[1], self[2]],
-        }
-    }
-}
-impl Into<Arrow> for [ArrowShape; 4] {
-    fn into(self) -> Arrow {
-        Arrow {
-            arrows: vec![self[0], self[1], self[2], self[3]],
-        }
+impl<const N: usize> From<[ArrowShape; N]> for Arrow {
+    fn from(shape: [ArrowShape; N]) -> Arrow {
+        Arrow {arrows: shape.to_vec() }
     }
 }
 
@@ -932,7 +935,7 @@ pub fn render_opts<'a,
         for &s in arg {
             w.write_all(s.as_bytes())?;
         }
-        write!(w, "\n")
+        writeln!(w)
     }
 
     fn indent<W: Write>(w: &mut W) -> io::Result<()> {
