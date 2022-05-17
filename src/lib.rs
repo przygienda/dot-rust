@@ -457,6 +457,11 @@ pub trait Labeller<'a,N,E> {
     /// Must return a DOT compatible identifier naming the graph.
     fn graph_id(&'a self) -> Id<'a>;
 
+    /// A list of attributes to apply to the graph
+    fn graph_attrs(&'a self) -> HashMap<&str, &str> {
+        HashMap::default()
+    }
+
     /// Maps `n` to a unique identifier with respect to `self`. The
     /// implementer is responsible for ensuring that the returned name
     /// is a valid DOT identifier.
@@ -980,7 +985,6 @@ pub fn render_opts<'a,
     }
 
     writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_slice(), " {"])?;
-
     if g.kind() == Kind::Digraph {
         if let Some(rankdir) = g.rank_dir() {
             indent(w)?;
@@ -988,6 +992,9 @@ pub fn render_opts<'a,
         }
     }
 
+    for (name, value) in g.graph_attrs().iter() {
+        writeln(w, &[name, "=", value])?;
+    }
     for n in g.nodes().iter() {
         let colorstring;
 
