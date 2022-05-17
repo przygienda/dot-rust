@@ -373,22 +373,22 @@ pub struct Id<'a> {
 }
 
 #[derive(Debug)]
-pub enum IdError {
+pub enum IdError<'a> {
     EmptyName,
-    InvalidStartChar(char),
-    InvalidChar(char)
+    InvalidStartChar(char, Cow<'a, str>),
+    InvalidChar(char, Cow<'a, str>),
 }
 
-impl std::fmt::Display for IdError {
+impl<'a> std::fmt::Display for IdError<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             IdError::EmptyName => write!(f, "Id cannot be empty"),
-            IdError::InvalidStartChar(c) => write!(f, "Id cannot begin with '{c}'"),
-            IdError::InvalidChar(c) => write!(f, "Id cannot contain '{c}'")
+            IdError::InvalidStartChar(c, id) => write!(f, "Id cannot begin with `{c}` (`{id}`)"),
+            IdError::InvalidChar(c, id) => write!(f, "Id cannot contain `{c}` (`{id}`)"),
         }
     }
 }
-impl std::error::Error for IdError {}
+impl<'a> std::error::Error for IdError<'a> {}
 
 impl<'a> Id<'a> {
     /// Creates an `Id` named `name`.
@@ -405,20 +405,20 @@ impl<'a> Id<'a> {
     ///
     /// Passing an invalid string (containing spaces, brackets,
     /// quotes, ...) will return an empty `Err` value.
-    pub fn new<Name: Into<Cow<'a, str>>>(name: Name) -> Result<Id<'a>, IdError> {
+    pub fn new<Name: Into<Cow<'a, str>>>(name: Name) -> Result<Id<'a>, IdError<'a>> {
         let name = name.into();
         {
             let mut chars = name.chars();
             match chars.next() {
                 Some(c) if is_letter_or_underscore(c) => {}
-                Some(c) => return Err(IdError::InvalidStartChar(c)),
-                _ => return Err(IdError::EmptyName)
+                Some(c) => return Err(IdError::InvalidStartChar(c, name)),
+                None => return Err(IdError::EmptyName),
             }
             if let Some(bad) = chars.find(|c| !is_constituent(*c)) {
-                return Err(IdError::InvalidChar(bad))
+                return Err(IdError::InvalidChar(bad, name));
             }
         }
-        return Ok(Id{ name });
+        return Ok(Id { name });
 
         fn is_letter_or_underscore(c: char) -> bool {
             in_range('a', c, 'z') || in_range('A', c, 'Z') || c == '_'
@@ -577,9 +577,9 @@ impl<'a> LabelText<'a> {
     /// This includes quotes or suitable delimeters.
     pub fn to_dot_string(&self) -> String {
         match self {
-            LabelStr(ref s) => format!("\"{}\"", LabelText::escape_default(s)),
-            EscStr(ref s) => format!("\"{}\"", LabelText::escape_str(&s[..])),
-            HtmlStr(ref s) => format!("<{}>", s),
+            LabelStr(s) => format!("\"{}\"", LabelText::escape_default(s)),
+            EscStr(s) => format!("\"{}\"", LabelText::escape_str(&s[..])),
+            HtmlStr(s) => format!("<{}>", s),
         }
     }
 
@@ -663,17 +663,23 @@ impl Arrow {
         let mut cow = String::new();
         for arrow in &self.arrows {
             cow.push_str(&arrow.to_dot_string());
-        };
+        }
         cow
     }
 }
 
-
-impl<const N: usize> From<[ArrowShape; N]> for Arrow {
-    fn from(shape: [ArrowShape; N]) -> Arrow {
-        Arrow {arrows: shape.to_vec() }
+macro_rules! arrowshape_to_arrow {
+    ( $($n:expr), * ) => {
+        $(
+            impl From<[ArrowShape; $n]> for Arrow {
+                fn from(shape: [ArrowShape; $n]) -> Arrow {
+                    Arrow {arrows: shape.to_vec() }
+                }
+            }
+        )*
     }
 }
+arrowshape_to_arrow!(2, 3, 4);
 
 /// Arrow modifier that determines if the shape is empty or filled.
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
