@@ -505,6 +505,45 @@ pub trait Labeller<'a,N,E> {
     fn kind(&self) -> Kind {
         Kind::Digraph
     }
+    
+    /// Maps `e` to the compass point that the edge will start from.
+    /// Defaults to the default point
+    fn edge_start_point(&'a self, _e: &E) -> Option<CompassPoint> {
+        None
+    }
+
+    /// Maps `e` to the compass point that the edge will end at.
+    /// Defaults to the default point
+    fn edge_end_point(&'a self, _e: &E) -> Option<CompassPoint> {
+        None
+    }
+}
+
+pub enum CompassPoint {
+    North,
+    NorthEast,
+    East,
+    SouthEast,
+    South,
+    SouthWest,
+    West,
+    NorthWest,
+}
+
+impl CompassPoint {
+    const fn to_code(&self) -> &'static str {
+        use CompassPoint::*;
+        match self {
+            North => ":n",
+            NorthEast => ":ne",
+            East => ":e",
+            SouthEast => ":se",
+            South => ":s",
+            SouthWest => ":sw",
+            West => ":w",
+            NorthWest => ":nw",
+        }
+    }
 }
 
 /// Escape tags in such a way that it is suitable for inclusion in a
@@ -992,6 +1031,8 @@ pub fn render_opts<'a,
         let end_arrow = g.edge_end_arrow(e);
         let start_arrow_s = start_arrow.to_dot_string();
         let end_arrow_s = end_arrow.to_dot_string();
+        let start_p = g.edge_start_point(e).map(|p| p.to_code()).unwrap_or("");
+        let end_p = g.edge_end_point(e).map(|p| p.to_code()).unwrap_or("");
 
         indent(w)?;
         let source = g.source(e);
@@ -999,9 +1040,9 @@ pub fn render_opts<'a,
         let source_id = g.node_id(&source);
         let target_id = g.node_id(&target);
 
-        let mut text = vec![source_id.as_slice(), " ",
+        let mut text = vec![source_id.as_slice(), start_p, " ",
                             g.kind().edgeop(), " ",
-                            target_id.as_slice()];
+                            target_id.as_slice(), end_p];
 
         if !options.contains(&RenderOption::NoEdgeLabels) {
             text.push("[label=");
