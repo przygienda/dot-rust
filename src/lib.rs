@@ -517,6 +517,17 @@ pub trait Labeller<'a,N,E> {
     fn edge_end_point(&'a self, _e: &E) -> Option<CompassPoint> {
         None
     }
+
+    /// Maps `e` to the port that the edge will start from.
+    fn edge_start_port(&'a self, _: &E) -> Option<Id<'a>> {
+        None
+    }
+
+    /// Maps `e` to the port that the edge will end at.
+    fn edge_end_port(&'a self, _: &E) -> Option<Id<'a>> {
+        None
+    }
+    
 }
 
 pub enum CompassPoint {
@@ -528,6 +539,7 @@ pub enum CompassPoint {
     SouthWest,
     West,
     NorthWest,
+    Center
 }
 
 impl CompassPoint {
@@ -542,6 +554,7 @@ impl CompassPoint {
             SouthWest => ":sw",
             West => ":w",
             NorthWest => ":nw",
+            Center => ":c"
         }
     }
 }
@@ -1031,6 +1044,8 @@ pub fn render_opts<'a,
         let end_arrow = g.edge_end_arrow(e);
         let start_arrow_s = start_arrow.to_dot_string();
         let end_arrow_s = end_arrow.to_dot_string();
+        let start_port = g.edge_start_port(e).map(|p| format!(":{}", p.name())).unwrap_or_default();
+        let end_port = g.edge_end_port(e).map(|p| format!(":{}", p.name())).unwrap_or_default();
         let start_p = g.edge_start_point(e).map(|p| p.to_code()).unwrap_or("");
         let end_p = g.edge_end_point(e).map(|p| p.to_code()).unwrap_or("");
 
@@ -1040,9 +1055,9 @@ pub fn render_opts<'a,
         let source_id = g.node_id(&source);
         let target_id = g.node_id(&target);
 
-        let mut text = vec![source_id.as_slice(), start_p, " ",
+        let mut text = vec![source_id.as_slice(), &start_port, start_p, " ",
                             g.kind().edgeop(), " ",
-                            target_id.as_slice(), end_p];
+                            target_id.as_slice(), &end_port, end_p];
 
         if !options.contains(&RenderOption::NoEdgeLabels) {
             text.push("[label=");
