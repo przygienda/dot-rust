@@ -488,9 +488,9 @@ pub trait Labeller<'a,N,E> {
     fn node_style(&'a self, _n: &N) -> Style {
         Style::None
     }
-    
+
     /// Return an explicit rank dir to use for directed graphs.
-    /// 
+    ///
     /// Return 'None' to use the default (generally "TB" for directed graphs).
     fn rank_dir(&'a self) -> Option<RankDir> {
         None
@@ -969,14 +969,14 @@ pub fn render_opts<'a,
     }
 
     writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_slice(), " {"])?;
-    
+
     if g.kind() == Kind::Digraph {
         if let Some(rankdir) = g.rank_dir() {
             indent(w)?;
             writeln(w, &["rankdir=\"", rankdir.as_slice(), "\";"])?;
         }
     }
-    
+
     for n in g.nodes().iter() {
         let colorstring;
 
@@ -1090,7 +1090,7 @@ pub fn render_opts<'a,
 #[cfg(test)]
 mod tests {
     use self::NodeLabels::*;
-    use super::{Id, Labeller, Nodes, Edges, GraphWalk, render, Style, Kind};
+    use super::{Id, Labeller, Nodes, Edges, GraphWalk, render, Style, Kind, RankDir};
     use super::LabelText::{self, LabelStr, EscStr, HtmlStr};
     use super::{Arrow, ArrowShape, Side};
     use std::io;
@@ -1558,6 +1558,7 @@ r#"digraph test_some_labelled {
         nodes: usize,
         edges: Vec<SimpleEdge>,
         kind: Kind,
+        rankdir: Option<RankDir>,
     }
 
     impl DefaultStyleGraph {
@@ -1572,6 +1573,14 @@ r#"digraph test_some_labelled {
                 nodes: nodes,
                 edges: edges,
                 kind: kind,
+                rankdir: None,
+            }
+        }
+
+        fn with_rankdir(self, rankdir: Option<RankDir>) -> Self {
+            Self {
+                rankdir,
+                ..self
             }
         }
     }
@@ -1585,6 +1594,9 @@ r#"digraph test_some_labelled {
         }
         fn kind(&self) -> Kind {
             self.kind
+        }
+        fn rank_dir(&self) -> Option<RankDir> {
+            self.rankdir
         }
     }
 
@@ -1647,6 +1659,25 @@ r#"digraph di {
     N0 -> N2[label=""];
     N1 -> N3[label=""];
     N2 -> N3[label=""];
+}
+"#);
+    }
+
+    #[test]
+    fn digraph_with_rankdir() {
+        let r = test_input_default(
+            DefaultStyleGraph::new("di", 4,
+                                   vec![(0, 1), (0, 2)],
+                                   Kind::Digraph).with_rankdir(Some(RankDir::LeftRight)));
+        assert_eq!(r.unwrap(),
+r#"digraph di {
+    rankdir="LR";
+    N0[label="N0"];
+    N1[label="N1"];
+    N2[label="N2"];
+    N3[label="N3"];
+    N0 -> N1[label=""];
+    N0 -> N2[label=""];
 }
 "#);
     }
