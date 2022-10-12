@@ -1666,11 +1666,12 @@ r#"digraph di {
     #[test]
     fn digraph_with_rankdir() {
         let r = test_input_default(
-            DefaultStyleGraph::new("di", 4,
-                                   vec![(0, 1), (0, 2)],
-                                   Kind::Digraph).with_rankdir(Some(RankDir::LeftRight)));
-        assert_eq!(r.unwrap(),
-r#"digraph di {
+            DefaultStyleGraph::new("di", 4, vec![(0, 1), (0, 2)],
+                                   Kind::Digraph)
+                .with_rankdir(Some(RankDir::LeftRight)));
+        assert_eq!(
+            r.unwrap(),
+            r#"digraph di {
     rankdir="LR";
     N0[label="N0"];
     N1[label="N1"];
@@ -1679,6 +1680,7 @@ r#"digraph di {
     N0 -> N1[label=""];
     N0 -> N2[label=""];
 }
-"#);
+"#
+        );
     }
 }
