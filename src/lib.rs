@@ -534,6 +534,14 @@ pub trait Labeller<'a,N,E> {
     fn kind(&self) -> Kind {
         Kind::Digraph
     }
+
+    fn source_sub_id(&'a self, _e: &E) -> Option<Id<'a>> {
+        None
+    }
+
+    fn target_sub_id(&'a self, _e: &E) -> Option<Id<'a>> {
+        None
+    }
 }
 
 /// Escape tags in such a way that it is suitable for inclusion in a
@@ -1036,9 +1044,20 @@ pub fn render_opts<'a,
         let source_id = g.node_id(&source);
         let target_id = g.node_id(&target);
 
-        let mut text = vec![source_id.as_slice(), " ",
-                            g.kind().edgeop(), " ",
-                            target_id.as_slice()];
+        let mut text = vec![source_id.as_slice()];
+        
+        let source_r = g.source_sub_id(&e);
+        if let Some(ref refinement) = source_r {
+            text.push(":");
+            text.push(refinement.as_slice());
+        }
+        text.extend(&[" ", g.kind().edgeop(), " ",
+                            target_id.as_slice()]);
+        let target_r = g.target_sub_id(&e);
+        if let Some(ref refinement) = target_r {
+            text.push(":");
+            text.push(refinement.as_slice());
+        }
 
         if !options.contains(&RenderOption::NoEdgeLabels) {
             text.push("[label=");
