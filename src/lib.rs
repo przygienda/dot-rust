@@ -410,28 +410,25 @@ impl<'a> Id<'a> {
     ///
     /// Passing an invalid string (containing spaces, brackets,
     /// quotes, ...) will return an empty `Err` value.
-    pub fn new<Name: Into<Cow<'a, str>>>(name: Name) -> Result<Id<'a>, ()> {
+    pub fn new<Name: Into<Cow<'a, str>>>(name: Name) -> Result<Id<'a>, &'static str> {
         let name = name.into();
         {
             let mut chars = name.chars();
             match chars.next() {
                 Some(c) if is_letter_or_underscore(c) => {}
-                _ => return Err(()),
+                _ => return Err("First character is not a letter or an underscore"),
             }
             if !chars.all(is_constituent) {
-                return Err(())
+                return Err("Contains characters which are not alphanumeric/underscore characters");
             }
         }
         return Ok(Id { name });
 
         fn is_letter_or_underscore(c: char) -> bool {
-            in_range('a', c, 'z') || in_range('A', c, 'Z') || c == '_'
+            c.is_ascii_alphabetic() || c == '_'
         }
         fn is_constituent(c: char) -> bool {
-            is_letter_or_underscore(c) || in_range('0', c, '9')
-        }
-        fn in_range(low: char, c: char, high: char) -> bool {
-            low as usize <= c as usize && c as usize <= high as usize
+            is_letter_or_underscore(c) || c.is_ascii_digit()
         }
     }
 
