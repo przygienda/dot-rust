@@ -272,6 +272,7 @@ use self::LabelText::*;
 use std::borrow::Cow;
 use std::io::prelude::*;
 use std::io;
+use std::str;
 use std::collections::HashMap;
 
 /// The text for a graphviz label on a node or edge.
@@ -544,7 +545,7 @@ pub trait Labeller<'a,N,E> {
     fn edge_attrs(&'a self, _e: &E) -> HashMap<&str, &str> {
         HashMap::default()
     }
- 
+
     /// The kind of graph, defaults to `Kind::Digraph`.
     #[inline]
     fn kind(&self) -> Kind {
@@ -575,6 +576,14 @@ impl<'a> LabelText<'a> {
         HtmlStr(s.into())
     }
 
+    fn escape_ascii_char(c: char) -> String {
+        if c.is_ascii() || c.is_control() || c.is_whitespace() {
+            c.escape_default().to_string()
+        } else {
+            String::from(c)
+        }
+    }
+
     fn escape_char<F>(c: char, mut f: F)
         where F: FnMut(char)
     {
@@ -582,7 +591,7 @@ impl<'a> LabelText<'a> {
             // not escaping \\, since Graphviz escString needs to
             // interpret backslashes; see EscStr above.
             '\\' => f(c),
-            _ => for c in c.escape_default() {
+            _ => for c in Self::escape_ascii_char(c).chars() {
                 f(c)
             },
         }
@@ -596,7 +605,11 @@ impl<'a> LabelText<'a> {
     }
 
     fn escape_default(s: &str) -> String {
-        s.chars().flat_map(|c| c.escape_default()).collect()
+        let mut buf = String::new();
+        for c in s.chars() {
+            buf.push_str(Self::escape_ascii_char(c).as_str());
+        }
+        buf
     }
 
     /// Renders text as string suitable for a label in a .dot file.
@@ -975,7 +988,7 @@ pub fn render_opts<'a,
      -> io::Result<()> {
     fn writeln<W: Write>(w: &mut W, arg: &[&str]) -> io::Result<()> {
         for &s in arg {
-            w.write_all(s.as_bytes())?;
+            write!(w, "{}", s)?;
         }
         write!(w, "\n")
     }
@@ -1471,6 +1484,22 @@ r#"digraph hasse_diagram {
     N0 -> N2[label=""][color="blue"];
     N1 -> N3[label=""][color="red"];
     N2 -> N3[label=""][color="black"];
+}
+"#);
+    }
+
+    #[test]
+    fn utf8_diagram() {
+        let labels = AllNodesLabelled(vec!("Λ", "ι"));
+        let r = test_input(LabelledGraph::new("utf8_diagram",
+                                              labels,
+                                              vec![edge(0, 1, "☕", Style::None, None)],
+                                              None));
+        assert_eq!(r.unwrap(),
+r#"digraph utf8_diagram {
+    N0[label="Λ"];
+    N1[label="ι"];
+    N0 -> N1[label="☕"];
 }
 "#);
     }
