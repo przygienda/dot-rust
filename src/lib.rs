@@ -432,7 +432,7 @@ impl<'a> Id<'a> {
     }
 
     pub fn as_slice(&'a self) -> &'a str {
-        &*self.name
+        &self.name
     }
 
     pub fn name(self) -> Cow<'a, str> {
@@ -591,7 +591,7 @@ impl<'a> LabelText<'a> {
         match self {
             EscStr(s) => s,
             LabelStr(s) => if s.contains('\\') {
-                LabelText::escape_default(&*s).into()
+                LabelText::escape_default(&s).into()
             } else {
                 s
             },
@@ -624,17 +624,19 @@ pub struct Arrow {
 
 use self::ArrowShape::*;
 
+impl Default for Arrow {
+    /// Arrow constructor which returns a default arrow
+    fn default() -> Arrow {
+        Arrow {
+            arrows: vec![],
+        }
+    }
+}
+
 impl Arrow {
     /// Return `true` if this is a default arrow.
     fn is_default(&self) -> bool {
         self.arrows.is_empty()
-    }
-
-    /// Arrow constructor which returns a default arrow
-    pub fn default() -> Arrow {
-        Arrow {
-            arrows: vec![],
-        }
     }
 
     /// Arrow constructor which returns an empty arrow
