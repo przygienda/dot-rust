@@ -551,6 +551,55 @@ pub trait Labeller<'a,N,E> {
     fn kind(&self) -> Kind {
         Kind::Digraph
     }
+
+    /// Specify a subpart of the source node for the origin of the edge (portname) and a
+    /// direction for the edge (compass_point). See also
+    /// https://graphviz.org/docs/attr-types/portPos/. 
+    /// 
+    /// For the portname to take effect the node shape must be `record`. See
+    /// also https://graphviz.org/doc/info/shapes.html#record
+    fn source_port_position(&'a self, _e: &E) -> (Option<Id<'a>>, Option<CompassPoint>) {
+        (None, None)
+    }
+
+    /// Same as `source_port_position` but for the target end of the edge.
+    fn target_port_position(&'a self, _e: &E) -> (Option<Id<'a>>, Option<CompassPoint>) {
+        (None, None)
+    }
+}
+
+/// Allowed values for compass points. Used for specifying edge directions. See
+/// also https://graphviz.org/docs/attr-types/portPos/
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum CompassPoint {
+    N,
+    NE,
+    E,
+    SE,
+    S,
+    SW,
+    W,
+    NW,
+    C,
+    Underscore
+}
+
+impl CompassPoint {
+    fn as_str(self) -> &'static str {
+        use CompassPoint::*;
+        match self {
+            N => "n",
+            NE => "ne",
+            E => "e",
+            SE => "se",
+            S => "s",
+            SW => "sw",
+            W => "w",
+            NW => "nw",
+            C => "c",
+            Underscore => "_",
+        }
+    }
 }
 
 /// Escape tags in such a way that it is suitable for inclusion in a
@@ -1070,9 +1119,28 @@ pub fn render_opts<'a,
         let source_id = g.node_id(&source);
         let target_id = g.node_id(&target);
 
-        let mut text = vec![source_id.as_slice(), " ",
-                            g.kind().edgeop(), " ",
-                            target_id.as_slice()];
+        let mut text = vec![source_id.as_slice()];
+        
+        let (source_port, source_direction) = g.source_port_position(&e);
+        if let Some(ref refinement) = source_port {
+            text.push(":");
+            text.push(refinement.as_slice());
+        }
+        if let Some(dir) = source_direction {
+            text.push(":");
+            text.push(dir.as_str());
+        }
+        text.extend(&[" ", g.kind().edgeop(), " ",
+                            target_id.as_slice()]);
+        let (target_port, target_direction) = g.target_port_position(&e);
+        if let Some(ref refinement) = target_port {
+            text.push(":");
+            text.push(refinement.as_slice());
+        }
+        if let Some(dir) = target_direction {
+            text.push(":");
+            text.push(dir.as_str());
+        }
 
         if !options.contains(&RenderOption::NoEdgeLabels) {
             text.push("[label=");
