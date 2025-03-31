@@ -1,6 +1,6 @@
 // Copyright 2014-2015 The Rust Project Developers. See the COPYRIGHT
 // file at the top-level directory of this distribution and at
-// http://rust-lang.org/COPYRIGHT.
+// https://github.com/rust-lang/rust/blob/master/COPYRIGHT.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -304,7 +304,7 @@ pub enum LabelText<'a> {
 }
 
 /// The style for a node or edge.
-/// See https://graphviz.org/doc/info/attrs.html#k:style for descriptions.
+/// See https://graphviz.org/docs/attrs/style/ for descriptions.
 /// Note that some of these are not valid for edges.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Style {
@@ -506,7 +506,7 @@ pub trait Labeller<'a,N,E> {
     /// Maps `n` to one of the [graphviz `color` names][1]. If `None`
     /// is returned, no `color` attribute is specified.
     ///
-    /// [1]: https://graphviz.gitlab.io/_pages/doc/info/colors.html
+    /// [1]: https://graphviz.org/doc/info/colors.html
     fn node_color(&'a self, _node: &N) -> Option<LabelText<'a>> {
         None
     }
@@ -536,7 +536,7 @@ pub trait Labeller<'a,N,E> {
     /// Maps `e` to one of the [graphviz `color` names][1]. If `None`
     /// is returned, no `color` attribute is specified.
     ///
-    /// [1]: https://graphviz.gitlab.io/_pages/doc/info/colors.html
+    /// [1]: https://graphviz.org/doc/info/colors.html
     fn edge_color(&'a self, _e: &E) -> Option<LabelText<'a>> {
         None
     }
