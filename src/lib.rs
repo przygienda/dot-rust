@@ -1,6 +1,6 @@
 // Copyright 2014-2015 The Rust Project Developers. See the COPYRIGHT
 // file at the top-level directory of this distribution and at
-// http://rust-lang.org/COPYRIGHT.
+// https://github.com/rust-lang/rust/blob/master/COPYRIGHT.
 //
 // Licensed under the Apache License, Version 2.0 <LICENSE-APACHE or
 // http://www.apache.org/licenses/LICENSE-2.0> or the MIT license
@@ -272,8 +272,9 @@
 use self::LabelText::*;
 
 use std::borrow::Cow;
-use std::io;
 use std::io::prelude::*;
+use std::str;
+use std::collections::HashMap;
 
 /// The text for a graphviz label on a node or edge.
 pub enum LabelText<'a> {
@@ -454,6 +455,11 @@ pub trait Labeller<'a, N, E> {
     /// Must return a DOT compatible identifier naming the graph.
     fn graph_id(&'a self) -> Id<'a>;
 
+    /// A list of attributes to apply to the graph
+    fn graph_attrs(&'a self) -> HashMap<&str, &str> {
+        HashMap::default()
+    }
+
     /// Maps `n` to a unique identifier with respect to `self`. The
     /// implementer is responsible for ensuring that the returned name
     /// is a valid DOT identifier.
@@ -497,9 +503,14 @@ pub trait Labeller<'a, N, E> {
     /// Maps `n` to one of the [graphviz `color` names][1]. If `None`
     /// is returned, no `color` attribute is specified.
     ///
-    /// [1]: https://graphviz.gitlab.io/_pages/doc/info/colors.html
+    /// [1]: https://graphviz.org/doc/info/colors.html
     fn node_color(&'a self, _node: &N) -> Option<LabelText<'a>> {
         None
+    }
+
+    /// Maps `n` to a set of arbritrary node attributes.
+    fn node_attrs(&'a self, _n: &N) -> HashMap<&str, &str> {
+        HashMap::default()
     }
 
     /// Maps `e` to arrow style that will be used on the end of an edge.
@@ -522,15 +533,69 @@ pub trait Labeller<'a, N, E> {
     /// Maps `e` to one of the [graphviz `color` names][1]. If `None`
     /// is returned, no `color` attribute is specified.
     ///
-    /// [1]: https://graphviz.gitlab.io/_pages/doc/info/colors.html
+    /// [1]: https://graphviz.org/doc/info/colors.html
     fn edge_color(&'a self, _e: &E) -> Option<LabelText<'a>> {
         None
+    }
+
+    /// Maps `e` to a set of arbritrary edge attributes.
+    fn edge_attrs(&'a self, _e: &E) -> HashMap<&str, &str> {
+        HashMap::default()
     }
 
     /// The kind of graph, defaults to `Kind::Digraph`.
     #[inline]
     fn kind(&self) -> Kind {
         Kind::Digraph
+    }
+
+    /// Specify a subpart of the source node for the origin of the edge (portname) and a
+    /// direction for the edge (compass_point). See also
+    /// https://graphviz.org/docs/attr-types/portPos/. 
+    /// 
+    /// For the portname to take effect the node shape must be `record`. See
+    /// also https://graphviz.org/doc/info/shapes.html#record
+    fn source_port_position(&'a self, _e: &E) -> (Option<Id<'a>>, Option<CompassPoint>) {
+        (None, None)
+    }
+
+    /// Same as `source_port_position` but for the target end of the edge.
+    fn target_port_position(&'a self, _e: &E) -> (Option<Id<'a>>, Option<CompassPoint>) {
+        (None, None)
+    }
+}
+
+/// Allowed values for compass points. Used for specifying edge directions. See
+/// also https://graphviz.org/docs/attr-types/portPos/
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum CompassPoint {
+    N,
+    NE,
+    E,
+    SE,
+    S,
+    SW,
+    W,
+    NW,
+    C,
+    Underscore
+}
+
+impl CompassPoint {
+    fn as_str(self) -> &'static str {
+        use CompassPoint::*;
+        match self {
+            N => "n",
+            NE => "ne",
+            E => "e",
+            SE => "se",
+            S => "s",
+            SW => "sw",
+            W => "w",
+            NW => "nw",
+            C => "c",
+            Underscore => "_",
+        }
     }
 }
 
@@ -554,6 +619,14 @@ impl<'a> LabelText<'a> {
 
     pub fn html<S: Into<Cow<'a, str>>>(s: S) -> LabelText<'a> {
         HtmlStr(s.into())
+    }
+
+    fn escape_ascii_char(c: char) -> String {
+        if c.is_ascii() || c.is_control() || c.is_whitespace() {
+            c.escape_default().to_string()
+        } else {
+            String::from(c)
+        }
     }
 
     fn escape_char<F>(c: char, mut f: F)
@@ -580,7 +653,11 @@ impl<'a> LabelText<'a> {
     }
 
     fn escape_default(s: &str) -> String {
-        s.chars().flat_map(|c| c.escape_default()).collect()
+        let mut buf = String::new();
+        for c in s.chars() {
+            buf.push_str(Self::escape_ascii_char(c).as_str());
+        }
+        buf
     }
 
     /// Renders text as string suitable for a label in a .dot file.
@@ -955,7 +1032,7 @@ pub fn render_opts<
 ) -> io::Result<()> {
     fn writeln<W: Write>(w: &mut W, arg: &[&str]) -> io::Result<()> {
         for &s in arg {
-            w.write_all(s.as_bytes())?;
+            write!(w, "{}", s)?;
         }
         writeln!(w)
     }
@@ -965,7 +1042,6 @@ pub fn render_opts<
     }
 
     writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_slice(), " {"])?;
-
     if g.kind() == Kind::Digraph {
         if let Some(rankdir) = g.rank_dir() {
             indent(w)?;
@@ -973,6 +1049,9 @@ pub fn render_opts<
         }
     }
 
+    for (name, value) in g.graph_attrs().iter() {
+        writeln(w, &[name, "=", value])?;
+    }
     for n in g.nodes().iter() {
         let colorstring;
 
@@ -1014,6 +1093,9 @@ pub fn render_opts<
             text.push("]");
         }
 
+        let node_attrs = g.node_attrs(n).iter().map(|(name, value)| format!("[{name}={value}]")).collect::<Vec<String>>();
+        text.extend(node_attrs.iter().map(|s| s as &str));
+
         text.push(";");
         writeln(w, &text)?;
     }
@@ -1032,13 +1114,28 @@ pub fn render_opts<
         let source_id = g.node_id(&source);
         let target_id = g.node_id(&target);
 
-        let mut text = vec![
-            source_id.as_slice(),
-            " ",
-            g.kind().edgeop(),
-            " ",
-            target_id.as_slice(),
-        ];
+        let mut text = vec![source_id.as_slice()];
+        
+        let (source_port, source_direction) = g.source_port_position(&e);
+        if let Some(ref refinement) = source_port {
+            text.push(":");
+            text.push(refinement.as_slice());
+        }
+        if let Some(dir) = source_direction {
+            text.push(":");
+            text.push(dir.as_str());
+        }
+        text.extend(&[" ", g.kind().edgeop(), " ",
+                            target_id.as_slice()]);
+        let (target_port, target_direction) = g.target_port_position(&e);
+        if let Some(ref refinement) = target_port {
+            text.push(":");
+            text.push(refinement.as_slice());
+        }
+        if let Some(dir) = target_direction {
+            text.push(":");
+            text.push(dir.as_str());
+        }
 
         if !options.contains(&RenderOption::NoEdgeLabels) {
             text.push("[label=");
@@ -1080,7 +1177,8 @@ pub fn render_opts<
 
             text.push("]");
         }
-
+        let edge_attrs = g.edge_attrs(e).iter().map(|(name, value)| format!("[{name}={value}]")).collect::<Vec<String>>();
+        text.extend(edge_attrs.iter().map(|s| s as &str));
         text.push(";");
         writeln(w, &text)?;
     }
@@ -1489,6 +1587,22 @@ mod tests {
 }
 "#
         );
+    }
+
+    #[test]
+    fn utf8_diagram() {
+        let labels = AllNodesLabelled(vec!("Λ", "ι"));
+        let r = test_input(LabelledGraph::new("utf8_diagram",
+                                              labels,
+                                              vec![edge(0, 1, "☕", Style::None, None)],
+                                              None));
+        assert_eq!(r.unwrap(),
+r#"digraph utf8_diagram {
+    N0[label="Λ"];
+    N1[label="ι"];
+    N0 -> N1[label="☕"];
+}
+"#);
     }
 
     #[test]
