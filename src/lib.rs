@@ -272,9 +272,10 @@
 use self::LabelText::*;
 
 use std::borrow::Cow;
-use std::io::prelude::*;
+use std::io;
 use std::str;
 use std::collections::HashMap;
+use std::io::Write;
 
 /// The text for a graphviz label on a node or edge.
 pub enum LabelText<'a> {
@@ -456,7 +457,7 @@ pub trait Labeller<'a, N, E> {
     fn graph_id(&'a self) -> Id<'a>;
 
     /// A list of attributes to apply to the graph
-    fn graph_attrs(&'a self) -> HashMap<&str, &str> {
+    fn graph_attrs(&'a self) -> HashMap<&'a str, &'a str> {
         HashMap::default()
     }
 
@@ -509,7 +510,7 @@ pub trait Labeller<'a, N, E> {
     }
 
     /// Maps `n` to a set of arbritrary node attributes.
-    fn node_attrs(&'a self, _n: &N) -> HashMap<&str, &str> {
+    fn node_attrs(&'a self, _n: &N) -> HashMap<&'a str, &'a str> {
         HashMap::default()
     }
 
@@ -539,7 +540,7 @@ pub trait Labeller<'a, N, E> {
     }
 
     /// Maps `e` to a set of arbritrary edge attributes.
-    fn edge_attrs(&'a self, _e: &E) -> HashMap<&str, &str> {
+    fn edge_attrs(&'a self, _e: &E) -> HashMap<&'a str, &'a str> {
         HashMap::default()
     }
 
@@ -823,7 +824,7 @@ pub enum ArrowShape {
     Curve(Side),
     /// Arrow ending in an inverted curve
     ICurve(Fill, Side),
-    /// Arrow ending in an diamond shaped rectangular shape.
+    /// Arrow ending in a diamond shaped rectangular shape.
     Diamond(Fill, Side),
     /// Arrow ending in a circle.
     Dot(Fill),
@@ -837,57 +838,57 @@ pub enum ArrowShape {
 impl ArrowShape {
     /// Constructor which returns no arrow.
     pub fn none() -> ArrowShape {
-        ArrowShape::NoArrow
+        NoArrow
     }
 
     /// Constructor which returns normal arrow.
     pub fn normal() -> ArrowShape {
-        ArrowShape::Normal(Fill::Filled, Side::Both)
+        Normal(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns a regular box arrow.
     pub fn boxed() -> ArrowShape {
-        ArrowShape::Box(Fill::Filled, Side::Both)
+        Box(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns a regular crow arrow.
     pub fn crow() -> ArrowShape {
-        ArrowShape::Crow(Side::Both)
+        Crow(Side::Both)
     }
 
     /// Constructor which returns a regular curve arrow.
     pub fn curve() -> ArrowShape {
-        ArrowShape::Curve(Side::Both)
+        Curve(Side::Both)
     }
 
     /// Constructor which returns an inverted curve arrow.
     pub fn icurve() -> ArrowShape {
-        ArrowShape::ICurve(Fill::Filled, Side::Both)
+        ICurve(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns a diamond arrow.
     pub fn diamond() -> ArrowShape {
-        ArrowShape::Diamond(Fill::Filled, Side::Both)
+        Diamond(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns a circle shaped arrow.
     pub fn dot() -> ArrowShape {
-        ArrowShape::Diamond(Fill::Filled, Side::Both)
+        Diamond(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns an inverted triangle arrow.
     pub fn inv() -> ArrowShape {
-        ArrowShape::Inv(Fill::Filled, Side::Both)
+        Inv(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns a T shaped arrow.
     pub fn tee() -> ArrowShape {
-        ArrowShape::Tee(Side::Both)
+        Tee(Side::Both)
     }
 
     /// Constructor which returns a V shaped arrow.
     pub fn vee() -> ArrowShape {
-        ArrowShape::Vee(Side::Both)
+        Vee(Side::Both)
     }
 
     /// Function which renders given ArrowShape into a String for displaying.
@@ -1430,7 +1431,7 @@ mod tests {
 
     fn test_input(g: LabelledGraph) -> io::Result<String> {
         let mut writer = Vec::new();
-        render(&g, &mut writer).unwrap();
+        render(&g, &mut writer)?;
         let mut s = String::new();
         Read::read_to_string(&mut &*writer, &mut s)?;
         Ok(s)
@@ -1782,7 +1783,7 @@ r#"digraph utf8_diagram {
 
     fn test_input_default(g: DefaultStyleGraph) -> io::Result<String> {
         let mut writer = Vec::new();
-        render(&g, &mut writer).unwrap();
+        render(&g, &mut writer)?;
         let mut s = String::new();
         Read::read_to_string(&mut &*writer, &mut s)?;
         Ok(s)
