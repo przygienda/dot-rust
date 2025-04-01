@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/GrahamDennis/dot-rust.svg?branch=develop)](https://travis-ci.org/GrahamDennis/dot-rust)
+[![Build Status](https://travis-ci.org/przygienda/dot-rust.svg?branch=develop)](https://travis-ci.org/przygienda/dot-rust)
 
 # dot-rust
 
