@@ -1169,7 +1169,7 @@ pub fn render_opts<'a,
                    N: Clone + 'a,
                    E: Clone + 'a,
                    S: Clone + 'a,
-                   G: Labeller<'a, N, E> + GraphWalk<'a, N, E>,
+                   G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
                    W: Write>
     (g: &'a G,
      w: &mut W,
@@ -1479,9 +1479,7 @@ fn render_nodes<'a,
 mod tests {
     use self::NodeLabels::*;
     use super::LabelText::{self, EscStr, HtmlStr, LabelStr};
-    use super::{render, Edges, GraphWalk, Id, Kind, Labeller, Nodes, RankDir, Style};
-    use super::{Id, Labeller, Nodes, Edges, GraphWalk, render, Style, Kind, Subgraphs};
-    use super::LabelText::{self, LabelStr, EscStr, HtmlStr};
+    use super::{render, Edges, GraphWalk, Id, Kind, Labeller, Nodes, RankDir, Style, Subgraphs};
     use super::{Arrow, ArrowShape, Side};
     use std::io;
     use std::io::prelude::*;
@@ -2136,7 +2134,7 @@ r#"digraph di {
     #[test]
     fn digraph_with_rankdir() {
         let r = test_input_default(
-            DefaultStyleGraph::new("di", 4, vec![(0, 1), (0, 2)], Kind::Digraph)
+            DefaultStyleGraph::new("di", 4, vec![(0, 1), (0, 2)], Vec::new(), Kind::Digraph)
                 .with_rankdir(Some(RankDir::LeftRight)),
         );
         assert_eq!(
