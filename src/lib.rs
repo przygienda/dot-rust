@@ -272,10 +272,10 @@
 use self::LabelText::*;
 
 use std::borrow::Cow;
-use std::io;
-use std::str;
 use std::collections::HashMap;
+use std::io;
 use std::io::Write;
+use std::str;
 
 /// The text for a graphviz label on a node or edge.
 pub enum LabelText<'a> {
@@ -323,18 +323,18 @@ pub enum Style {
 }
 
 impl Style {
-    pub fn as_slice(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
-            Style::None => "",
-            Style::Solid => "solid",
-            Style::Dashed => "dashed",
-            Style::Dotted => "dotted",
-            Style::Bold => "bold",
-            Style::Rounded => "rounded",
-            Style::Diagonals => "diagonals",
-            Style::Filled => "filled",
-            Style::Striped => "striped",
-            Style::Wedged => "wedged",
+            Self::None => "",
+            Self::Solid => "solid",
+            Self::Dashed => "dashed",
+            Self::Dotted => "dotted",
+            Self::Bold => "bold",
+            Self::Rounded => "rounded",
+            Self::Diagonals => "diagonals",
+            Self::Filled => "filled",
+            Self::Striped => "striped",
+            Self::Wedged => "wedged",
         }
     }
 }
@@ -350,12 +350,12 @@ pub enum RankDir {
 }
 
 impl RankDir {
-    pub fn as_slice(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
-            RankDir::TopBottom => "TB",
-            RankDir::LeftRight => "LR",
-            RankDir::BottomTop => "BT",
-            RankDir::RightLeft => "RL",
+            Self::TopBottom => "TB",
+            Self::LeftRight => "LR",
+            Self::BottomTop => "BT",
+            Self::RightLeft => "RL",
         }
     }
 }
@@ -412,7 +412,7 @@ impl<'a> Id<'a> {
     ///
     /// Passing an invalid string (containing spaces, brackets,
     /// quotes, ...) will return an empty `Err` value.
-    pub fn new<Name: Into<Cow<'a, str>>>(name: Name) -> Result<Id<'a>, &'static str> {
+    pub fn new<Name: Into<Cow<'a, str>>>(name: Name) -> Result<Self, &'static str> {
         let name = name.into();
         {
             let mut chars = name.chars();
@@ -434,7 +434,7 @@ impl<'a> Id<'a> {
         }
     }
 
-    pub fn as_slice(&'a self) -> &'a str {
+    pub fn as_str(&'a self) -> &'a str {
         &self.name
     }
 
@@ -552,8 +552,8 @@ pub trait Labeller<'a, N, E> {
 
     /// Specify a subpart of the source node for the origin of the edge (portname) and a
     /// direction for the edge (compass_point). See also
-    /// https://graphviz.org/docs/attr-types/portPos/. 
-    /// 
+    /// https://graphviz.org/docs/attr-types/portPos/.
+    ///
     /// For the portname to take effect the node shape must be `record`. See
     /// also https://graphviz.org/doc/info/shapes.html#record
     fn source_port_position(&'a self, _e: &E) -> (Option<Id<'a>>, Option<CompassPoint>) {
@@ -579,7 +579,7 @@ pub enum CompassPoint {
     W,
     NW,
     C,
-    Underscore
+    Underscore,
 }
 
 impl CompassPoint {
@@ -610,15 +610,15 @@ pub fn escape_html(s: &str) -> String {
 }
 
 impl<'a> LabelText<'a> {
-    pub fn label<S: Into<Cow<'a, str>>>(s: S) -> LabelText<'a> {
+    pub fn label<S: Into<Cow<'a, str>>>(s: S) -> Self {
         LabelStr(s.into())
     }
 
-    pub fn escaped<S: Into<Cow<'a, str>>>(s: S) -> LabelText<'a> {
+    pub fn escaped<S: Into<Cow<'a, str>>>(s: S) -> Self {
         EscStr(s.into())
     }
 
-    pub fn html<S: Into<Cow<'a, str>>>(s: S) -> LabelText<'a> {
+    pub fn html<S: Into<Cow<'a, str>>>(s: S) -> Self {
         HtmlStr(s.into())
     }
 
@@ -720,22 +720,22 @@ impl Arrow {
     }
 
     /// Arrow constructor which returns an empty arrow
-    pub fn none() -> Arrow {
-        Arrow {
+    pub fn none() -> Self {
+        Self {
             arrows: vec![NoArrow],
         }
     }
 
     /// Arrow constructor which returns a regular triangle arrow, without modifiers
-    pub fn normal() -> Arrow {
-        Arrow {
+    pub fn normal() -> Self {
+        Self {
             arrows: vec![ArrowShape::normal()],
         }
     }
 
     /// Arrow constructor which returns an arrow created by a given ArrowShape.
-    pub fn from_arrow(arrow: ArrowShape) -> Arrow {
-        Arrow {
+    pub fn from_arrow(arrow: ArrowShape) -> Self {
+        Self {
             arrows: vec![arrow],
         }
     }
@@ -752,21 +752,21 @@ impl Arrow {
 
 impl From<[ArrowShape; 2]> for Arrow {
     fn from(val: [ArrowShape; 2]) -> Self {
-        Arrow {
+        Self {
             arrows: vec![val[0], val[1]],
         }
     }
 }
 impl From<[ArrowShape; 3]> for Arrow {
     fn from(val: [ArrowShape; 3]) -> Self {
-        Arrow {
+        Self {
             arrows: vec![val[0], val[1], val[2]],
         }
     }
 }
 impl From<[ArrowShape; 4]> for Arrow {
     fn from(val: [ArrowShape; 4]) -> Self {
-        Arrow {
+        Self {
             arrows: vec![val[0], val[1], val[2], val[3]],
         }
     }
@@ -780,10 +780,10 @@ pub enum Fill {
 }
 
 impl Fill {
-    pub fn as_slice(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
-            Fill::Open => "o",
-            Fill::Filled => "",
+            Self::Open => "o",
+            Self::Filled => "",
         }
     }
 }
@@ -798,11 +798,11 @@ pub enum Side {
 }
 
 impl Side {
-    pub fn as_slice(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
-            Side::Left => "l",
-            Side::Right => "r",
-            Side::Both => "",
+            Self::Left => "l",
+            Self::Right => "r",
+            Self::Both => "",
         }
     }
 }
@@ -835,97 +835,98 @@ pub enum ArrowShape {
     /// Arrow ending with a V shaped arrow.
     Vee(Side),
 }
+
 impl ArrowShape {
     /// Constructor which returns no arrow.
-    pub fn none() -> ArrowShape {
+    pub fn none() -> Self {
         NoArrow
     }
 
     /// Constructor which returns normal arrow.
-    pub fn normal() -> ArrowShape {
+    pub fn normal() -> Self {
         Normal(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns a regular box arrow.
-    pub fn boxed() -> ArrowShape {
+    pub fn boxed() -> Self {
         Box(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns a regular crow arrow.
-    pub fn crow() -> ArrowShape {
+    pub fn crow() -> Self {
         Crow(Side::Both)
     }
 
     /// Constructor which returns a regular curve arrow.
-    pub fn curve() -> ArrowShape {
+    pub fn curve() -> Self {
         Curve(Side::Both)
     }
 
     /// Constructor which returns an inverted curve arrow.
-    pub fn icurve() -> ArrowShape {
+    pub fn icurve() -> Self {
         ICurve(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns a diamond arrow.
-    pub fn diamond() -> ArrowShape {
+    pub fn diamond() -> Self {
         Diamond(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns a circle shaped arrow.
-    pub fn dot() -> ArrowShape {
+    pub fn dot() -> Self {
         Diamond(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns an inverted triangle arrow.
-    pub fn inv() -> ArrowShape {
+    pub fn inv() -> Self {
         Inv(Fill::Filled, Side::Both)
     }
 
     /// Constructor which returns a T shaped arrow.
-    pub fn tee() -> ArrowShape {
+    pub fn tee() -> Self {
         Tee(Side::Both)
     }
 
     /// Constructor which returns a V shaped arrow.
-    pub fn vee() -> ArrowShape {
+    pub fn vee() -> Self {
         Vee(Side::Both)
     }
 
     /// Function which renders given ArrowShape into a String for displaying.
     pub fn to_dot_string(&self) -> String {
         let mut res = String::new();
-        match *self {
+        match self {
             Box(fill, side)
             | ICurve(fill, side)
             | Diamond(fill, side)
             | Inv(fill, side)
             | Normal(fill, side) => {
-                res.push_str(fill.as_slice());
-                match side {
-                    Side::Left | Side::Right => res.push_str(side.as_slice()),
-                    Side::Both => {}
-                };
+                res.push_str(fill.as_str());
+                if matches!(side, Side::Left | Side::Right) {
+                    res.push_str(side.as_str());
+                }
             }
-            Dot(fill) => res.push_str(fill.as_slice()),
-            Crow(side) | Curve(side) | Tee(side) | Vee(side) => match side {
-                Side::Left | Side::Right => res.push_str(side.as_slice()),
-                Side::Both => {}
-            },
+            Dot(fill) => res.push_str(fill.as_str()),
+            Crow(side) | Curve(side) | Tee(side) | Vee(side) => {
+                if matches!(side, Side::Left | Side::Right) {
+                    res.push_str(side.as_str());
+                }
+            }
             NoArrow => {}
         };
-        match *self {
-            NoArrow => res.push_str("none"),
-            Normal(_, _) => res.push_str("normal"),
-            Box(_, _) => res.push_str("box"),
-            Crow(_) => res.push_str("crow"),
-            Curve(_) => res.push_str("curve"),
-            ICurve(_, _) => res.push_str("icurve"),
-            Diamond(_, _) => res.push_str("diamond"),
-            Dot(_) => res.push_str("dot"),
-            Inv(_, _) => res.push_str("inv"),
-            Tee(_) => res.push_str("tee"),
-            Vee(_) => res.push_str("vee"),
-        };
+        res.push_str(match self {
+            NoArrow => "none",
+            Normal(_, _) => "normal",
+            Box(_, _) => "box",
+            Crow(_) => "crow",
+            Curve(_) => "curve",
+            ICurve(_, _) => "icurve",
+            Diamond(_, _) => "diamond",
+            Dot(_) => "dot",
+            Inv(_, _) => "inv",
+            Tee(_) => "tee",
+            Vee(_) => "vee",
+        });
         res
     }
 }
@@ -945,17 +946,17 @@ impl Kind {
     /// The keyword to use to introduce the graph.
     /// Determines which edge syntax must be used, and default style.
     fn keyword(&self) -> &'static str {
-        match *self {
-            Kind::Digraph => "digraph",
-            Kind::Graph => "graph",
+        match self {
+            Self::Digraph => "digraph",
+            Self::Graph => "graph",
         }
     }
 
     /// The edgeop syntax to use for this graph kind.
     fn edgeop(&self) -> &'static str {
-        match *self {
-            Kind::Digraph => "->",
-            Kind::Graph => "--",
+        match self {
+            Self::Digraph => "->",
+            Self::Graph => "--",
         }
     }
 }
@@ -1042,11 +1043,11 @@ pub fn render_opts<
         w.write_all(b"    ")
     }
 
-    writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_slice(), " {"])?;
+    writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_str(), " {"])?;
     if g.kind() == Kind::Digraph {
         if let Some(rankdir) = g.rank_dir() {
             indent(w)?;
-            writeln(w, &["rankdir=\"", rankdir.as_slice(), "\";"])?;
+            writeln(w, &["rankdir=\"", rankdir.as_str(), "\";"])?;
         }
     }
 
@@ -1062,7 +1063,7 @@ pub fn render_opts<
         let escaped = &g.node_label(n).to_dot_string();
         let shape;
 
-        let mut text = vec![id.as_slice()];
+        let mut text = vec![id.as_str()];
 
         if !options.contains(&RenderOption::NoNodeLabels) {
             text.push("[label=");
@@ -1073,7 +1074,7 @@ pub fn render_opts<
         let style = g.node_style(n);
         if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
             text.push("[style=\"");
-            text.push(style.as_slice());
+            text.push(style.as_str());
             text.push("\"]");
         }
 
@@ -1094,7 +1095,11 @@ pub fn render_opts<
             text.push("]");
         }
 
-        let node_attrs = g.node_attrs(n).iter().map(|(name, value)| format!("[{name}={value}]")).collect::<Vec<String>>();
+        let node_attrs = g
+            .node_attrs(n)
+            .iter()
+            .map(|(name, value)| format!("[{name}={value}]"))
+            .collect::<Vec<String>>();
         text.extend(node_attrs.iter().map(|s| s as &str));
 
         text.push(";");
@@ -1115,23 +1120,22 @@ pub fn render_opts<
         let source_id = g.node_id(&source);
         let target_id = g.node_id(&target);
 
-        let mut text = vec![source_id.as_slice()];
-        
-        let (source_port, source_direction) = g.source_port_position(&e);
+        let mut text = vec![source_id.as_str()];
+
+        let (source_port, source_direction) = g.source_port_position(e);
         if let Some(ref refinement) = source_port {
             text.push(":");
-            text.push(refinement.as_slice());
+            text.push(refinement.as_str());
         }
         if let Some(dir) = source_direction {
             text.push(":");
             text.push(dir.as_str());
         }
-        text.extend(&[" ", g.kind().edgeop(), " ",
-                            target_id.as_slice()]);
-        let (target_port, target_direction) = g.target_port_position(&e);
+        text.extend(&[" ", g.kind().edgeop(), " ", target_id.as_str()]);
+        let (target_port, target_direction) = g.target_port_position(e);
         if let Some(ref refinement) = target_port {
             text.push(":");
-            text.push(refinement.as_slice());
+            text.push(refinement.as_str());
         }
         if let Some(dir) = target_direction {
             text.push(":");
@@ -1147,7 +1151,7 @@ pub fn render_opts<
         let style = g.edge_style(e);
         if !options.contains(&RenderOption::NoEdgeStyles) && style != Style::None {
             text.push("[style=\"");
-            text.push(style.as_slice());
+            text.push(style.as_str());
             text.push("\"]");
         }
 
@@ -1178,7 +1182,11 @@ pub fn render_opts<
 
             text.push("]");
         }
-        let edge_attrs = g.edge_attrs(e).iter().map(|(name, value)| format!("[{name}={value}]")).collect::<Vec<String>>();
+        let edge_attrs = g
+            .edge_attrs(e)
+            .iter()
+            .map(|(name, value)| format!("[{name}={value}]"))
+            .collect::<Vec<String>>();
         text.extend(edge_attrs.iter().map(|s| s as &str));
         text.push(";");
         writeln(w, &text)?;
@@ -1292,8 +1300,8 @@ mod tests {
         fn len(&self) -> usize {
             match self {
                 &UnlabelledNodes(len) => len,
-                &AllNodesLabelled(ref lbls) => lbls.len(),
-                &SomeNodesLabelled(ref lbls) => lbls.len(),
+                AllNodesLabelled(lbls) => lbls.len(),
+                SomeNodesLabelled(lbls) => lbls.len(),
             }
         }
     }
@@ -1304,9 +1312,9 @@ mod tests {
             node_labels: Trivial,
             edges: Vec<Edge>,
             node_styles: Option<Vec<Style>>,
-        ) -> LabelledGraph {
+        ) -> Self {
             let count = node_labels.len();
-            LabelledGraph {
+            Self {
                 name,
                 node_labels: node_labels.into_opt_strs(),
                 edges,
@@ -1319,12 +1327,8 @@ mod tests {
     }
 
     impl LabelledGraphWithEscStrs {
-        fn new(
-            name: &'static str,
-            node_labels: Trivial,
-            edges: Vec<Edge>,
-        ) -> LabelledGraphWithEscStrs {
-            LabelledGraphWithEscStrs {
+        fn new(name: &'static str, node_labels: Trivial, edges: Vec<Edge>) -> Self {
+            Self {
                 graph: LabelledGraph::new(name, node_labels, edges, None),
             }
         }
@@ -1382,7 +1386,7 @@ mod tests {
         }
         fn node_color(&'a self, n: &Node) -> Option<LabelText<'a>> {
             match self.graph.node_color(n) {
-                Some(LabelStr(s)) | Some(EscStr(s)) | Some(HtmlStr(s)) => Some(EscStr(s)),
+                Some(LabelStr(s) | EscStr(s) | HtmlStr(s)) => Some(EscStr(s)),
                 None => None,
             }
         }
@@ -1393,7 +1397,7 @@ mod tests {
         }
         fn edge_color(&'a self, e: &&'a Edge) -> Option<LabelText<'a>> {
             match self.graph.edge_color(e) {
-                Some(LabelStr(s)) | Some(EscStr(s)) | Some(HtmlStr(s)) => Some(EscStr(s)),
+                Some(LabelStr(s) | EscStr(s) | HtmlStr(s)) => Some(EscStr(s)),
                 None => None,
             }
         }
@@ -1592,18 +1596,22 @@ mod tests {
 
     #[test]
     fn utf8_diagram() {
-        let labels = AllNodesLabelled(vec!("Λ", "ι"));
-        let r = test_input(LabelledGraph::new("utf8_diagram",
-                                              labels,
-                                              vec![edge(0, 1, "☕", Style::None, None)],
-                                              None));
-        assert_eq!(r.unwrap(),
-r#"digraph utf8_diagram {
+        let labels = AllNodesLabelled(vec!["Λ", "ι"]);
+        let r = test_input(LabelledGraph::new(
+            "utf8_diagram",
+            labels,
+            vec![edge(0, 1, "☕", Style::None, None)],
+            None,
+        ));
+        assert_eq!(
+            r.unwrap(),
+            r#"digraph utf8_diagram {
     N0[label="Λ"];
     N1[label="ι"];
     N0 -> N1[label="☕"];
 }
-"#);
+"#
+        );
     }
 
     #[test]
@@ -1657,10 +1665,7 @@ r#"digraph utf8_diagram {
     #[test]
     fn simple_id_construction() {
         let id1 = Id::new("hello");
-        match id1 {
-            Ok(_) => {}
-            Err(..) => panic!("'hello' is not a valid value for id anymore"),
-        }
+        assert!(id1.is_ok(), "'hello' is not a valid value for id anymore");
     }
 
     #[test]
@@ -1712,10 +1717,10 @@ r#"digraph utf8_diagram {
     #[test]
     fn badly_formatted_id() {
         let id2 = Id::new("Weird { struct : ure } !!!");
-        match id2 {
-            Ok(_) => panic!("graphviz id suddenly allows spaces, brackets and stuff"),
-            Err(..) => {}
-        }
+        assert!(
+            id2.is_err(),
+            "graphviz id suddenly allows spaces, brackets and stuff"
+        );
     }
 
     type SimpleEdge = (Node, Node);
@@ -1730,14 +1735,9 @@ r#"digraph utf8_diagram {
     }
 
     impl DefaultStyleGraph {
-        fn new(
-            name: &'static str,
-            nodes: usize,
-            edges: Vec<SimpleEdge>,
-            kind: Kind,
-        ) -> DefaultStyleGraph {
+        fn new(name: &'static str, nodes: usize, edges: Vec<SimpleEdge>, kind: Kind) -> Self {
             assert!(!name.is_empty());
-            DefaultStyleGraph {
+            Self {
                 name,
                 nodes,
                 edges,
