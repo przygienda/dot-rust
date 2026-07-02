@@ -366,9 +366,6 @@
 //!
 //! * [DOT language](https://graphviz.org/doc/info/lang.html)
 
-#![crate_name = "dot"]
-#![crate_type = "rlib"]
-#![crate_type = "dylib"]
 #![doc(
     html_logo_url = "https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png",
     html_favicon_url = "https://doc.rust-lang.org/favicon.ico",
@@ -429,10 +426,6 @@ pub enum Style {
 }
 
 impl Style {
-    pub fn as_slice(&self) -> &str {
-        self.as_str()
-    }
-
     pub fn as_str(self) -> &'static str {
         match self {
             Self::None => "",
@@ -548,10 +541,6 @@ impl<'a> Id<'a> {
         &self.name
     }
 
-    pub fn as_slice(&'a self) -> &'a str {
-        &*self.name
-    }
-
     pub fn name(self) -> Cow<'a, str> {
         self.name
     }
@@ -562,11 +551,11 @@ impl<'a> Id<'a> {
 /// it in the generated .dot file. They can also provide more
 /// elaborate (and non-unique) label text that is used in the graphviz
 /// rendered output.
-
+///
 /// The graph instance is responsible for providing the DOT compatible
 /// identifiers for the nodes and (optionally) rendered labels for the nodes and
 /// edges, as well as an identifier for the graph itself.
-pub trait Labeller<'a,N,E,S=()> {
+pub trait Labeller<'a, N, E, S = ()> {
     /// Must return a DOT compatible identifier naming the graph.
     fn graph_id(&'a self) -> Id<'a>;
 
@@ -623,7 +612,7 @@ pub trait Labeller<'a,N,E,S=()> {
         None
     }
 
-    /// Maps `n` to a set of arbritrary node attributes.
+    /// Maps `n` to a set of arbitrary node attributes.
     fn node_attrs(&'a self, _n: &N) -> HashMap<&'a str, &'a str> {
         HashMap::default()
     }
@@ -653,7 +642,7 @@ pub trait Labeller<'a,N,E,S=()> {
         None
     }
 
-    /// Maps `e` to a set of arbritrary edge attributes.
+    /// Maps `e` to a set of arbitrary edge attributes.
     fn edge_attrs(&'a self, _e: &E) -> HashMap<&'a str, &'a str> {
         HashMap::default()
     }
@@ -665,7 +654,7 @@ pub trait Labeller<'a,N,E,S=()> {
     }
 
     /// Maps `s` to a unique subgraph identifier.
-    /// Prefix this identifier by `cluster_` to draw this subgraph in its own distinct retangle.
+    /// Prefix this identifier by `cluster_` to draw this subgraph in its own distinct rectangle.
     fn subgraph_id(&'a self, _s: &S) -> Option<Id<'a>> {
         None
     }
@@ -804,7 +793,7 @@ impl<'a> LabelText<'a> {
     }
 
     /// Renders text as string suitable for a label in a .dot file.
-    /// This includes quotes or suitable delimeters.
+    /// This includes quotes or suitable delimiters.
     pub fn to_dot_string(&self) -> String {
         match self {
             LabelStr(s) => format!("\"{}\"", LabelText::escape_default(s)),
@@ -1073,9 +1062,9 @@ impl ArrowShape {
     }
 }
 
-pub type Subgraphs<'a,S> = Cow<'a,[S]>;
-pub type Nodes<'a,N> = Cow<'a,[N]>;
-pub type Edges<'a,E> = Cow<'a,[E]>;
+pub type Subgraphs<'a, S> = Cow<'a, [S]>;
+pub type Nodes<'a, N> = Cow<'a, [N]>;
+pub type Edges<'a, E> = Cow<'a, [E]>;
 
 /// Graph kind determines if `digraph` or `graph` is used as keyword
 /// for the graph.
@@ -1130,12 +1119,12 @@ pub trait GraphWalk<'a, N: Clone, E: Clone, S: Clone = ()> {
     /// The target node for `edge`.
     fn target(&'a self, edge: &E) -> N;
 
-    /// Retuns all the subgraphs in this graph.
+    /// Returns all the subgraphs in this graph.
     fn subgraphs(&'a self) -> Subgraphs<'a, S> {
         std::borrow::Cow::Borrowed(&[])
     }
 
-    /// Retuns all the subgraphs in this graph.
+    /// Returns all the subgraphs in this graph.
     fn subgraph_nodes(&'a self, _s: &S) -> Nodes<'a, N> {
         std::borrow::Cow::Borrowed(&[])
     }
@@ -1159,55 +1148,146 @@ pub fn default_options() -> Vec<RenderOption> {
 
 /// Renders graph `g` into the writer `w` in DOT syntax.
 /// (Simple wrapper around `render_opts` that passes a default set of options.)
-pub fn render<'a,
-              N: Clone + 'a,
-              E: Clone + 'a,
-              S: Clone + 'a,
-              G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
-              W: Write>
-    (g: &'a G,
-     w: &mut W)
-     -> io::Result<()> {
+pub fn render<
+    'a,
+    N: Clone + 'a,
+    E: Clone + 'a,
+    S: Clone + 'a,
+    G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
+    W: Write,
+>(
+    g: &'a G,
+    w: &mut W,
+) -> io::Result<()> {
     render_opts(g, w, &[])
 }
 
 /// Renders graph `g` into the writer `w` in DOT syntax.
 /// (Main entry point for the library.)
-pub fn render_opts<'a,
-                   N: Clone + 'a,
-                   E: Clone + 'a,
-                   S: Clone + 'a,
-                   G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
-                   W: Write>
-    (g: &'a G,
-     w: &mut W,
-     options: &[RenderOption])
-     -> io::Result<()> {
-    fn writeln<W: Write>(w: &mut W, arg: &[&str]) -> io::Result<()> {
-        for &s in arg {
-            w.write_all(s.as_bytes())?;
-        }
-        write!(w, "\n")
-    }
+pub fn render_opts<
+    'a,
+    N: Clone + 'a,
+    E: Clone + 'a,
+    S: Clone + 'a,
+    G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
+    W: Write,
+>(
+    g: &'a G,
+    w: &mut W,
+    options: &[RenderOption],
+) -> io::Result<()> {
+    writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_str(), " {"])?;
 
-    fn indent<W: Write>(w: &mut W) -> io::Result<()> {
-        w.write_all(b"    ")
-    }
+    render_subgraphs(g, w, options)?;
 
-    writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_slice(), " {"])?;
-
-    render_subgraphs(g, &g.subgraphs(), w, options)?;
-
-    if g.kind() == Kind::Digraph {
-        if let Some(rankdir) = g.rank_dir() {
-            indent(w)?;
-            writeln(w, &["rankdir=\"", rankdir.as_str(), "\";"])?;
-        }
+    if g.kind() == Kind::Digraph
+        && let Some(rankdir) = g.rank_dir()
+    {
+        indent(w)?;
+        writeln(w, &["rankdir=\"", rankdir.as_str(), "\";"])?;
     }
 
     for (name, value) in g.graph_attrs().iter() {
         writeln(w, &[name, "=", value])?;
     }
+
+    render_nodes(g, w, options)?;
+    render_edges(g, w, options)?;
+
+    writeln(w, &["}"])
+}
+
+fn writeln<W: Write>(w: &mut W, arg: &[&str]) -> io::Result<()> {
+    for &s in arg {
+        w.write_all(s.as_bytes())?;
+    }
+    writeln!(w)
+}
+
+fn indent<W: Write>(w: &mut W) -> io::Result<()> {
+    w.write_all(b"    ")
+}
+
+fn render_subgraphs<
+    'a,
+    N: Clone + 'a,
+    E: Clone + 'a,
+    S: Clone + 'a,
+    G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
+    W: Write,
+>(
+    g: &'a G,
+    w: &mut W,
+    options: &[RenderOption],
+) -> io::Result<()> {
+    for s in g.subgraphs().iter() {
+        let label;
+        let colorstring;
+        let shape;
+
+        let mut text = vec!["subgraph "];
+        let id = g
+            .subgraph_id(s)
+            .map(|x| format!("{} ", x.name()))
+            .unwrap_or_default();
+
+        text.push(&id);
+
+        text.push("{\n");
+
+        if !options.contains(&RenderOption::NoNodeLabels) {
+            label = format!("label={};\n", g.subgraph_label(s).to_dot_string());
+            text.push(&label);
+        }
+
+        let style = g.subgraph_style(s);
+        if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
+            text.push("style=\"");
+            text.push(style.as_str());
+            text.push("\";\n");
+        }
+
+        let color = g.subgraph_color(s);
+        if !options.contains(&RenderOption::NoNodeColors)
+            && let Some(c) = color
+        {
+            colorstring = c.to_dot_string();
+            text.push("color=");
+            text.push(&colorstring);
+            text.push(";\n");
+        }
+
+        if let Some(s) = g.subgraph_shape(s) {
+            shape = s.to_dot_string();
+            text.push("shape=\"");
+            text.push(&shape);
+            text.push(";\n");
+        }
+
+        writeln(w, &text)?;
+
+        for n in g.subgraph_nodes(s).iter() {
+            writeln(w, &[g.node_id(n).as_str(), ";"])?;
+        }
+
+        writeln(w, &["\n}\n"])?;
+    }
+
+    Ok(())
+}
+
+fn render_nodes<
+    'a,
+    N: Clone + 'a,
+    E: Clone + 'a,
+    S: Clone + 'a,
+    G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
+    W: Write,
+>(
+    g: &'a G,
+    w: &mut W,
+    options: &[RenderOption],
+) -> io::Result<()> {
     for n in g.nodes().iter() {
         let colorstring;
 
@@ -1217,7 +1297,7 @@ pub fn render_opts<'a,
         let escaped = &g.node_label(n).to_dot_string();
         let shape;
 
-        let mut text = vec![id.as_slice()];
+        let mut text = vec![id.as_str()];
 
         if !options.contains(&RenderOption::NoNodeLabels) {
             text.push("[label=");
@@ -1228,18 +1308,18 @@ pub fn render_opts<'a,
         let style = g.node_style(n);
         if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
             text.push("[style=\"");
-            text.push(style.as_slice());
+            text.push(style.as_str());
             text.push("\"]");
         }
 
         let color = g.node_color(n);
-        if !options.contains(&RenderOption::NoNodeColors) {
-            if let Some(c) = color {
-                colorstring = c.to_dot_string();
-                text.push("[color=");
-                text.push(&colorstring);
-                text.push("]");
-            }
+        if !options.contains(&RenderOption::NoNodeColors)
+            && let Some(c) = color
+        {
+            colorstring = c.to_dot_string();
+            text.push("[color=");
+            text.push(&colorstring);
+            text.push("]");
         }
 
         if let Some(s) = g.node_shape(n) {
@@ -1254,12 +1334,27 @@ pub fn render_opts<'a,
             .iter()
             .map(|(name, value)| format!("[{name}={value}]"))
             .collect::<Vec<String>>();
-        text.extend(node_attrs.iter().map(|s| s as &str));
+        text.extend(node_attrs.iter().map(|s| s.as_str()));
 
         text.push(";");
         writeln(w, &text)?;
     }
 
+    Ok(())
+}
+
+fn render_edges<
+    'a,
+    N: Clone + 'a,
+    E: Clone + 'a,
+    S: Clone + 'a,
+    G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
+    W: Write,
+>(
+    g: &'a G,
+    w: &mut W,
+    options: &[RenderOption],
+) -> io::Result<()> {
     for e in g.edges().iter() {
         let colorstring;
         let escaped_label = &g.edge_label(e).to_dot_string();
@@ -1310,13 +1405,13 @@ pub fn render_opts<'a,
         }
 
         let color = g.edge_color(e);
-        if !options.contains(&RenderOption::NoEdgeColors) {
-            if let Some(c) = color {
-                colorstring = c.to_dot_string();
-                text.push("[color=");
-                text.push(&colorstring);
-                text.push("]");
-            }
+        if !options.contains(&RenderOption::NoEdgeColors)
+            && let Some(c) = color
+        {
+            colorstring = c.to_dot_string();
+            text.push("[color=");
+            text.push(&colorstring);
+            text.push("]");
         }
 
         if !options.contains(&RenderOption::NoArrows)
@@ -1341,141 +1436,7 @@ pub fn render_opts<'a,
             .iter()
             .map(|(name, value)| format!("[{name}={value}]"))
             .collect::<Vec<String>>();
-        text.extend(edge_attrs.iter().map(|s| s as &str));
-        text.push(";");
-        writeln(w, &text)?;
-    }
-
-    writeln(w, &["}"])
-}
-
-fn writeln<W: Write>(w: &mut W, arg: &[&str]) -> io::Result<()> {
-    for &s in arg {
-        w.write_all(s.as_bytes())?;
-    }
-    write!(w, "\n")
-}
-
-fn indent<W: Write>(w: &mut W) -> io::Result<()> {
-    w.write_all(b"    ")
-}
-
-fn render_subgraphs<'a,
-                   N: Clone + 'a,
-                   E: Clone + 'a,
-                   S: Clone + 'a,
-                   G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
-                   W: Write>
-    (g: &'a G,
-     subgraphs: &Subgraphs<'a, S>,
-     w: &mut W,
-     options: &[RenderOption])
-     -> io::Result<()> {
-    for s in subgraphs.iter() {
-        let label;
-        let colorstring;
-        let shape;
-
-        let mut text = vec!["subgraph "];
-        let id = g.subgraph_id(s).map(|x| format!("{} ", x.name())).unwrap_or_default();
-
-        text.push(&id);
-
-        text.push("{\n");
-
-        if !options.contains(&RenderOption::NoNodeLabels) {
-            label = format!("label={};\n", g.subgraph_label(s).to_dot_string());
-            text.push(&label);
-        }
-
-        let style = g.subgraph_style(s);
-        if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
-            text.push("style=\"");
-            text.push(style.as_slice());
-            text.push("\";\n");
-        }
-
-        let color = g.subgraph_color(s);
-        if !options.contains(&RenderOption::NoNodeColors) {
-            if let Some(c) = color {
-                colorstring = c.to_dot_string();
-                text.push("color=");
-                text.push(&colorstring);
-                text.push(";\n");
-            }
-        }
-
-        if let Some(s) = g.subgraph_shape(s) {
-            shape = s.to_dot_string();
-            text.push("shape=\"");
-            text.push(&shape);
-            text.push(";\n");
-        }
-
-        writeln(w, &text)?;
-
-        for n in g.subgraph_nodes(s).iter() {
-            writeln(w, &[g.node_id(n).as_slice(), ";"])?;
-        }
-
-        writeln(w, &["\n}\n"])?;
-    }
-
-    Ok(())
-}
-
-fn render_nodes<'a,
-                   N: Clone + 'a,
-                   E: Clone + 'a,
-                   S: Clone + 'a,
-                   G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
-                   W: Write>
-    (g: &'a G,
-     nodes: &Nodes<'a, N>,
-     w: &mut W,
-     options: &[RenderOption])
-     -> io::Result<()> {
-    for n in nodes.iter() {
-        let colorstring;
-
-        indent(w)?;
-        let id = g.node_id(n);
-
-        let escaped = &g.node_label(n).to_dot_string();
-        let shape;
-
-        let mut text = vec![id.as_slice()];
-
-        if !options.contains(&RenderOption::NoNodeLabels) {
-            text.push("[label=");
-            text.push(escaped);
-            text.push("]");
-        }
-
-        let style = g.node_style(n);
-        if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
-            text.push("[style=\"");
-            text.push(style.as_slice());
-            text.push("\"]");
-        }
-
-        let color = g.node_color(n);
-        if !options.contains(&RenderOption::NoNodeColors) {
-            if let Some(c) = color {
-                colorstring = c.to_dot_string();
-                text.push("[color=");
-                text.push(&colorstring);
-                text.push("]");
-            }
-        }
-
-        if let Some(s) = g.node_shape(n) {
-            shape = s.to_dot_string();
-            text.push("[shape=");
-            text.push(&shape);
-            text.push("]");
-        }
-
+        text.extend(edge_attrs.iter().map(|s| s.as_str()));
         text.push(";");
         writeln(w, &text)?;
     }
@@ -1487,8 +1448,8 @@ fn render_nodes<'a,
 mod tests {
     use self::NodeLabels::*;
     use super::LabelText::{self, EscStr, HtmlStr, LabelStr};
-    use super::{render, Edges, GraphWalk, Id, Kind, Labeller, Nodes, RankDir, Style, Subgraphs};
     use super::{Arrow, ArrowShape, Side};
+    use super::{Edges, GraphWalk, Id, Kind, Labeller, Nodes, RankDir, Style, Subgraphs, render};
     use std::io;
     use std::io::prelude::*;
 
@@ -2025,12 +1986,13 @@ mod tests {
     }
 
     impl DefaultStyleGraph {
-        fn new(name: &'static str,
-               nodes: usize,
-               edges: Vec<SimpleEdge>,
-               subgraphs: Vec<Vec<Node>>,
-               kind: Kind)
-               -> DefaultStyleGraph {
+        fn new(
+            name: &'static str,
+            nodes: usize,
+            edges: Vec<SimpleEdge>,
+            subgraphs: Vec<Vec<Node>>,
+            kind: Kind,
+        ) -> DefaultStyleGraph {
             assert!(!name.is_empty());
             DefaultStyleGraph {
                 name: name,
@@ -2039,7 +2001,6 @@ mod tests {
                 subgraphs: subgraphs,
                 kind: kind,
                 rankdir: None,
-
             }
         }
 
@@ -2097,13 +2058,16 @@ mod tests {
 
     #[test]
     fn default_style_graph() {
-        let r = test_input_default(
-            DefaultStyleGraph::new("g", 4,
-                                   vec![(0, 1), (0, 2), (1, 3), (2, 3)],
-                                   Vec::new(),
-                                   Kind::Graph));
-        assert_eq!(r.unwrap(),
-r#"graph g {
+        let r = test_input_default(DefaultStyleGraph::new(
+            "g",
+            4,
+            vec![(0, 1), (0, 2), (1, 3), (2, 3)],
+            Vec::new(),
+            Kind::Graph,
+        ));
+        assert_eq!(
+            r.unwrap(),
+            r#"graph g {
     N0[label="N0"];
     N1[label="N1"];
     N2[label="N2"];
@@ -2119,13 +2083,16 @@ r#"graph g {
 
     #[test]
     fn default_style_digraph() {
-        let r = test_input_default(
-            DefaultStyleGraph::new("di", 4,
-                                   vec![(0, 1), (0, 2), (1, 3), (2, 3)],
-                                   Vec::new(),
-                                   Kind::Digraph));
-        assert_eq!(r.unwrap(),
-r#"digraph di {
+        let r = test_input_default(DefaultStyleGraph::new(
+            "di",
+            4,
+            vec![(0, 1), (0, 2), (1, 3), (2, 3)],
+            Vec::new(),
+            Kind::Digraph,
+        ));
+        assert_eq!(
+            r.unwrap(),
+            r#"digraph di {
     N0[label="N0"];
     N1[label="N1"];
     N2[label="N2"];
@@ -2162,16 +2129,16 @@ r#"digraph di {
 
     #[test]
     fn subgraph() {
-        let r = test_input_default(
-            DefaultStyleGraph::new("di", 4,
-                                   vec![(0, 1), (0, 2), (1, 3), (2, 3)],
-                                   vec![
-                                       vec![0, 1],
-                                       vec![2, 3],
-                                   ],
-                                   Kind::Digraph));
-        assert_eq!(r.unwrap(),
-                   r#"digraph di {
+        let r = test_input_default(DefaultStyleGraph::new(
+            "di",
+            4,
+            vec![(0, 1), (0, 2), (1, 3), (2, 3)],
+            vec![vec![0, 1], vec![2, 3]],
+            Kind::Digraph,
+        ));
+        assert_eq!(
+            r.unwrap(),
+            r#"digraph di {
 subgraph cluster_0 {
 label="";
 
@@ -2197,6 +2164,7 @@ N3;
     N1 -> N3[label=""];
     N2 -> N3[label=""];
 }
-"#);
+"#
+        );
     }
 }
