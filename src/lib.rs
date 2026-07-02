@@ -1451,8 +1451,6 @@ mod tests {
     use super::{Arrow, ArrowShape, Side};
     use super::{Edges, GraphWalk, Id, Kind, Labeller, Nodes, RankDir, Style, Subgraphs, render};
     use expect_test::{Expect, expect};
-    use std::io;
-    use std::io::prelude::*;
 
     /// each node is an index in a vector in the graph.
     type Node = usize;
@@ -1683,12 +1681,19 @@ mod tests {
         }
     }
 
-    fn test_input(g: LabelledGraph) -> io::Result<String> {
-        let mut writer = Vec::new();
-        render(&g, &mut writer)?;
-        let mut s = String::new();
-        Read::read_to_string(&mut &*writer, &mut s)?;
-        Ok(s)
+    fn check_input<
+        'a,
+        N: Clone + 'a,
+        E: Clone + 'a,
+        S: Clone + 'a,
+        G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
+    >(
+        g: &'a G,
+        expect: Expect,
+    ) {
+        let mut data = Vec::new();
+        render(g, &mut data).unwrap();
+        expect.assert_eq(str::from_utf8(&data).unwrap());
     }
 
     // All of the tests use raw-strings as the format for the expected outputs,
@@ -1698,25 +1703,23 @@ mod tests {
     #[test]
     fn empty_graph() {
         let labels: Trivial = UnlabelledNodes(0);
-        let r = test_input(LabelledGraph::new("empty_graph", labels, vec![], None));
-        assert_eq!(
-            r.unwrap(),
-            r#"digraph empty_graph {
+        check_input(
+            &LabelledGraph::new("empty_graph", labels, vec![], None),
+            expect![[r#"digraph empty_graph {
 }
-"#
+"#]],
         );
     }
 
     #[test]
     fn single_node() {
         let labels: Trivial = UnlabelledNodes(1);
-        let r = test_input(LabelledGraph::new("single_node", labels, vec![], None));
-        assert_eq!(
-            r.unwrap(),
-            r#"digraph single_node {
+        check_input(
+            &LabelledGraph::new("single_node", labels, vec![], None),
+            expect![[r#"digraph single_node {
     N0[label="N0"];
 }
-"#
+"#]],
         );
     }
 
@@ -1724,53 +1727,50 @@ mod tests {
     fn single_node_with_style() {
         let labels: Trivial = UnlabelledNodes(1);
         let styles = Some(vec![Style::Dashed]);
-        let r = test_input(LabelledGraph::new("single_node", labels, vec![], styles));
-        assert_eq!(
-            r.unwrap(),
-            r#"digraph single_node {
+        check_input(
+            &LabelledGraph::new("single_node", labels, vec![], styles),
+            expect![[r#"digraph single_node {
     N0[label="N0"][style="dashed"];
 }
-"#
+"#]],
         );
     }
 
     #[test]
     fn single_edge() {
         let labels: Trivial = UnlabelledNodes(2);
-        let result = test_input(LabelledGraph::new(
-            "single_edge",
-            labels,
-            vec![edge(0, 1, "E", Style::None, None)],
-            None,
-        ));
-        assert_eq!(
-            result.unwrap(),
-            r#"digraph single_edge {
+        check_input(
+            &LabelledGraph::new(
+                "single_edge",
+                labels,
+                vec![edge(0, 1, "E", Style::None, None)],
+                None,
+            ),
+            expect![[r#"digraph single_edge {
     N0[label="N0"];
     N1[label="N1"];
     N0 -> N1[label="E"];
 }
-"#
+"#]],
         );
     }
 
     #[test]
     fn single_edge_with_style() {
         let labels: Trivial = UnlabelledNodes(2);
-        let result = test_input(LabelledGraph::new(
-            "single_edge",
-            labels,
-            vec![edge(0, 1, "E", Style::Bold, Some("red"))],
-            None,
-        ));
-        assert_eq!(
-            result.unwrap(),
-            r#"digraph single_edge {
+        check_input(
+            &LabelledGraph::new(
+                "single_edge",
+                labels,
+                vec![edge(0, 1, "E", Style::Bold, Some("red"))],
+                None,
+            ),
+            expect![[r#"digraph single_edge {
     N0[label="N0"];
     N1[label="N1"];
     N0 -> N1[label="E"][style="bold"][color="red"];
 }
-"#
+"#]],
         );
     }
 
@@ -1778,59 +1778,56 @@ mod tests {
     fn test_some_labelled() {
         let labels: Trivial = SomeNodesLabelled(vec![Some("A"), None]);
         let styles = Some(vec![Style::None, Style::Dotted]);
-        let result = test_input(LabelledGraph::new(
-            "test_some_labelled",
-            labels,
-            vec![edge(0, 1, "A-1", Style::None, None)],
-            styles,
-        ));
-        assert_eq!(
-            result.unwrap(),
-            r#"digraph test_some_labelled {
+        check_input(
+            &LabelledGraph::new(
+                "test_some_labelled",
+                labels,
+                vec![edge(0, 1, "A-1", Style::None, None)],
+                styles,
+            ),
+            expect![[r#"digraph test_some_labelled {
     N0[label="A"];
     N1[label="N1"][style="dotted"];
     N0 -> N1[label="A-1"];
 }
-"#
+"#]],
         );
     }
 
     #[test]
     fn single_cyclic_node() {
         let labels: Trivial = UnlabelledNodes(1);
-        let r = test_input(LabelledGraph::new(
-            "single_cyclic_node",
-            labels,
-            vec![edge(0, 0, "E", Style::None, None)],
-            None,
-        ));
-        assert_eq!(
-            r.unwrap(),
-            r#"digraph single_cyclic_node {
+        check_input(
+            &LabelledGraph::new(
+                "single_cyclic_node",
+                labels,
+                vec![edge(0, 0, "E", Style::None, None)],
+                None,
+            ),
+            expect![[r#"digraph single_cyclic_node {
     N0[label="N0"];
     N0 -> N0[label="E"];
 }
-"#
+"#]],
         );
     }
 
     #[test]
     fn hasse_diagram() {
         let labels = AllNodesLabelled(vec!["{x,y}", "{x}", "{y}", "{}"]);
-        let r = test_input(LabelledGraph::new(
-            "hasse_diagram",
-            labels,
-            vec![
-                edge(0, 1, "", Style::None, Some("green")),
-                edge(0, 2, "", Style::None, Some("blue")),
-                edge(1, 3, "", Style::None, Some("red")),
-                edge(2, 3, "", Style::None, Some("black")),
-            ],
-            None,
-        ));
-        assert_eq!(
-            r.unwrap(),
-            r#"digraph hasse_diagram {
+        check_input(
+            &LabelledGraph::new(
+                "hasse_diagram",
+                labels,
+                vec![
+                    edge(0, 1, "", Style::None, Some("green")),
+                    edge(0, 2, "", Style::None, Some("blue")),
+                    edge(1, 3, "", Style::None, Some("red")),
+                    edge(2, 3, "", Style::None, Some("black")),
+                ],
+                None,
+            ),
+            expect![[r#"digraph hasse_diagram {
     N0[label="{x,y}"];
     N1[label="{x}"];
     N2[label="{y}"];
@@ -1840,27 +1837,26 @@ mod tests {
     N1 -> N3[label=""][color="red"];
     N2 -> N3[label=""][color="black"];
 }
-"#
+"#]],
         );
     }
 
     #[test]
     fn utf8_diagram() {
         let labels = AllNodesLabelled(vec!["Λ", "ι"]);
-        let r = test_input(LabelledGraph::new(
-            "utf8_diagram",
-            labels,
-            vec![edge(0, 1, "☕", Style::None, None)],
-            None,
-        ));
-        assert_eq!(
-            r.unwrap(),
-            r#"digraph utf8_diagram {
+        check_input(
+            &LabelledGraph::new(
+                "utf8_diagram",
+                labels,
+                vec![edge(0, 1, "☕", Style::None, None)],
+                None,
+            ),
+            expect![[r#"digraph utf8_diagram {
     N0[label="Λ"];
     N1[label="ι"];
     N0 -> N1[label="☕"];
 }
-"#
+"#]],
         );
     }
 
@@ -1879,26 +1875,18 @@ mod tests {
             "afterward",
         ]);
 
-        let mut writer = Vec::new();
-
-        let g = LabelledGraphWithEscStrs::new(
-            "syntax_tree",
-            labels,
-            vec![
-                edge(0, 1, "then", Style::None, None),
-                edge(0, 2, "else", Style::None, None),
-                edge(1, 3, ";", Style::None, None),
-                edge(2, 3, ";", Style::None, None),
-            ],
-        );
-
-        render(&g, &mut writer).unwrap();
-        let mut r = String::new();
-        Read::read_to_string(&mut &*writer, &mut r).unwrap();
-
-        assert_eq!(
-            r,
-            r#"digraph syntax_tree {
+        check_input(
+            &LabelledGraphWithEscStrs::new(
+                "syntax_tree",
+                labels,
+                vec![
+                    edge(0, 1, "then", Style::None, None),
+                    edge(0, 2, "else", Style::None, None),
+                    edge(1, 3, ";", Style::None, None),
+                    edge(2, 3, ";", Style::None, None),
+                ],
+            ),
+            expect![[r#"digraph syntax_tree {
     N0[label="if test {\l    branch1\l} else {\l    branch2\l}\lafterward\l"];
     N1[label="branch1"];
     N2[label="branch2"];
@@ -1908,7 +1896,7 @@ mod tests {
     N1 -> N3[label=";"];
     N2 -> N3[label=";"];
 }
-"#
+"#]],
         );
     }
 
@@ -1924,20 +1912,19 @@ mod tests {
         let styles = Some(vec![Style::None, Style::Dotted]);
         let start = Arrow::default();
         let end = Arrow::from_arrow(ArrowShape::crow());
-        let result = test_input(LabelledGraph::new(
-            "test_some_labelled",
-            labels,
-            vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end, None)],
-            styles,
-        ));
-        assert_eq!(
-            result.unwrap(),
-            r#"digraph test_some_labelled {
+        check_input(
+            &LabelledGraph::new(
+                "test_some_labelled",
+                labels,
+                vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end, None)],
+                styles,
+            ),
+            expect![[r#"digraph test_some_labelled {
     N0[label="A"];
     N1[label="N1"][style="dotted"];
     N0 -> N1[label="A-1"][arrowhead="crow"];
 }
-"#
+"#]],
         );
     }
 
@@ -1947,20 +1934,19 @@ mod tests {
         let styles = Some(vec![Style::None, Style::Dotted]);
         let start = Arrow::from_arrow(ArrowShape::tee());
         let end = Arrow::from_arrow(ArrowShape::Crow(Side::Left));
-        let result = test_input(LabelledGraph::new(
-            "test_some_labelled",
-            labels,
-            vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end, None)],
-            styles,
-        ));
-        assert_eq!(
-            result.unwrap(),
-            r#"digraph test_some_labelled {
+        check_input(
+            &LabelledGraph::new(
+                "test_some_labelled",
+                labels,
+                vec![edge_with_arrows(0, 1, "A-1", Style::None, start, end, None)],
+                styles,
+            ),
+            expect![[r#"digraph test_some_labelled {
     N0[label="A"];
     N1[label="N1"][style="dotted"];
     N0 -> N1[label="A-1"][arrowhead="lcrow" dir="both" arrowtail="tee"];
 }
-"#
+"#]],
         );
     }
 
@@ -2049,32 +2035,17 @@ mod tests {
         }
     }
 
-    fn test_input_default(g: DefaultStyleGraph) -> io::Result<String> {
-        let mut writer = Vec::new();
-        render(&g, &mut writer)?;
-        let mut s = String::new();
-        Read::read_to_string(&mut &*writer, &mut s)?;
-        Ok(s)
-    }
-
-    fn check_input_default(g: DefaultStyleGraph, expect: Expect) {
-        let mut data = Vec::new();
-        render(&g, &mut data).unwrap();
-        expect.assert_eq(str::from_utf8(&data).unwrap());
-    }
-
     #[test]
     fn default_style_graph() {
-        let r = test_input_default(DefaultStyleGraph::new(
-            "g",
-            4,
-            vec![(0, 1), (0, 2), (1, 3), (2, 3)],
-            Vec::new(),
-            Kind::Graph,
-        ));
-        assert_eq!(
-            r.unwrap(),
-            r#"graph g {
+        check_input(
+            &DefaultStyleGraph::new(
+                "g",
+                4,
+                vec![(0, 1), (0, 2), (1, 3), (2, 3)],
+                Vec::new(),
+                Kind::Graph,
+            ),
+            expect![[r#"graph g {
     N0[label="N0"];
     N1[label="N1"];
     N2[label="N2"];
@@ -2084,22 +2055,21 @@ mod tests {
     N1 -- N3[label=""];
     N2 -- N3[label=""];
 }
-"#
+"#]],
         );
     }
 
     #[test]
     fn default_style_digraph() {
-        let r = test_input_default(DefaultStyleGraph::new(
-            "di",
-            4,
-            vec![(0, 1), (0, 2), (1, 3), (2, 3)],
-            Vec::new(),
-            Kind::Digraph,
-        ));
-        assert_eq!(
-            r.unwrap(),
-            r#"digraph di {
+        check_input(
+            &DefaultStyleGraph::new(
+                "di",
+                4,
+                vec![(0, 1), (0, 2), (1, 3), (2, 3)],
+                Vec::new(),
+                Kind::Digraph,
+            ),
+            expect![[r#"digraph di {
     N0[label="N0"];
     N1[label="N1"];
     N2[label="N2"];
@@ -2109,19 +2079,16 @@ mod tests {
     N1 -> N3[label=""];
     N2 -> N3[label=""];
 }
-"#
+"#]],
         );
     }
 
     #[test]
     fn digraph_with_rankdir() {
-        let r = test_input_default(
-            DefaultStyleGraph::new("di", 4, vec![(0, 1), (0, 2)], Vec::new(), Kind::Digraph)
+        check_input(
+            &DefaultStyleGraph::new("di", 4, vec![(0, 1), (0, 2)], Vec::new(), Kind::Digraph)
                 .with_rankdir(Some(RankDir::LeftRight)),
-        );
-        assert_eq!(
-            r.unwrap(),
-            r#"digraph di {
+            expect![[r#"digraph di {
     rankdir="LR";
     N0[label="N0"];
     N1[label="N1"];
@@ -2130,22 +2097,21 @@ mod tests {
     N0 -> N1[label=""];
     N0 -> N2[label=""];
 }
-"#
+"#]],
         );
     }
 
     #[test]
     fn subgraph() {
-        let r = test_input_default(DefaultStyleGraph::new(
-            "di",
-            4,
-            vec![(0, 1), (0, 2), (1, 3), (2, 3)],
-            vec![vec![0, 1], vec![2, 3]],
-            Kind::Digraph,
-        ));
-        assert_eq!(
-            r.unwrap(),
-            r#"digraph di {
+        check_input(
+            &DefaultStyleGraph::new(
+                "di",
+                4,
+                vec![(0, 1), (0, 2), (1, 3), (2, 3)],
+                vec![vec![0, 1], vec![2, 3]],
+                Kind::Digraph,
+            ),
+            expect![[r#"digraph di {
 subgraph cluster_0 {
 label="";
 
@@ -2171,14 +2137,14 @@ N3;
     N1 -> N3[label=""];
     N2 -> N3[label=""];
 }
-"#
+"#]],
         );
     }
 
     #[test]
     fn simple_subgraph() {
-        check_input_default(
-            DefaultStyleGraph::new("simple_subgraph", 2, vec![], vec![vec![0, 1]], Kind::Graph),
+        check_input(
+            &DefaultStyleGraph::new("simple_subgraph", 2, vec![], vec![vec![0, 1]], Kind::Graph),
             expect![[r#"
                 graph simple_subgraph {
                 subgraph cluster_0 {
