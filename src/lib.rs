@@ -1176,13 +1176,9 @@ pub fn render_opts<
     w: &mut W,
     options: &[RenderOption],
 ) -> io::Result<()> {
-    fn indent<W: Write>(w: &mut W) -> io::Result<()> {
-        w.write_all(b"    ")
-    }
-
     writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_str(), " {"])?;
 
-    render_subgraphs(g, &g.subgraphs(), w, options)?;
+    render_subgraphs(g, w, options)?;
 
     if g.kind() == Kind::Digraph
         && let Some(rankdir) = g.rank_dir()
@@ -1194,6 +1190,104 @@ pub fn render_opts<
     for (name, value) in g.graph_attrs().iter() {
         writeln(w, &[name, "=", value])?;
     }
+
+    render_nodes(g, w, options)?;
+    render_edges(g, w, options)?;
+
+    writeln(w, &["}"])
+}
+
+fn writeln<W: Write>(w: &mut W, arg: &[&str]) -> io::Result<()> {
+    for &s in arg {
+        w.write_all(s.as_bytes())?;
+    }
+    writeln!(w)
+}
+
+fn indent<W: Write>(w: &mut W) -> io::Result<()> {
+    w.write_all(b"    ")
+}
+
+fn render_subgraphs<
+    'a,
+    N: Clone + 'a,
+    E: Clone + 'a,
+    S: Clone + 'a,
+    G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
+    W: Write,
+>(
+    g: &'a G,
+    w: &mut W,
+    options: &[RenderOption],
+) -> io::Result<()> {
+    for s in g.subgraphs().iter() {
+        let label;
+        let colorstring;
+        let shape;
+
+        let mut text = vec!["subgraph "];
+        let id = g
+            .subgraph_id(s)
+            .map(|x| format!("{} ", x.name()))
+            .unwrap_or_default();
+
+        text.push(&id);
+
+        text.push("{\n");
+
+        if !options.contains(&RenderOption::NoNodeLabels) {
+            label = format!("label={};\n", g.subgraph_label(s).to_dot_string());
+            text.push(&label);
+        }
+
+        let style = g.subgraph_style(s);
+        if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
+            text.push("style=\"");
+            text.push(style.as_str());
+            text.push("\";\n");
+        }
+
+        let color = g.subgraph_color(s);
+        if !options.contains(&RenderOption::NoNodeColors)
+            && let Some(c) = color
+        {
+            colorstring = c.to_dot_string();
+            text.push("color=");
+            text.push(&colorstring);
+            text.push(";\n");
+        }
+
+        if let Some(s) = g.subgraph_shape(s) {
+            shape = s.to_dot_string();
+            text.push("shape=\"");
+            text.push(&shape);
+            text.push(";\n");
+        }
+
+        writeln(w, &text)?;
+
+        for n in g.subgraph_nodes(s).iter() {
+            writeln(w, &[g.node_id(n).as_str(), ";"])?;
+        }
+
+        writeln(w, &["\n}\n"])?;
+    }
+
+    Ok(())
+}
+
+fn render_nodes<
+    'a,
+    N: Clone + 'a,
+    E: Clone + 'a,
+    S: Clone + 'a,
+    G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
+    W: Write,
+>(
+    g: &'a G,
+    w: &mut W,
+    options: &[RenderOption],
+) -> io::Result<()> {
     for n in g.nodes().iter() {
         let colorstring;
 
@@ -1240,12 +1334,27 @@ pub fn render_opts<
             .iter()
             .map(|(name, value)| format!("[{name}={value}]"))
             .collect::<Vec<String>>();
-        text.extend(node_attrs.iter().map(|s| s as &str));
+        text.extend(node_attrs.iter().map(|s| s.as_str()));
 
         text.push(";");
         writeln(w, &text)?;
     }
 
+    Ok(())
+}
+
+fn render_edges<
+    'a,
+    N: Clone + 'a,
+    E: Clone + 'a,
+    S: Clone + 'a,
+    G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
+    W: Write,
+>(
+    g: &'a G,
+    w: &mut W,
+    options: &[RenderOption],
+) -> io::Result<()> {
     for e in g.edges().iter() {
         let colorstring;
         let escaped_label = &g.edge_label(e).to_dot_string();
@@ -1327,148 +1436,7 @@ pub fn render_opts<
             .iter()
             .map(|(name, value)| format!("[{name}={value}]"))
             .collect::<Vec<String>>();
-        text.extend(edge_attrs.iter().map(|s| s as &str));
-        text.push(";");
-        writeln(w, &text)?;
-    }
-
-    writeln(w, &["}"])
-}
-
-fn writeln<W: Write>(w: &mut W, arg: &[&str]) -> io::Result<()> {
-    for &s in arg {
-        w.write_all(s.as_bytes())?;
-    }
-    writeln!(w)
-}
-
-fn indent<W: Write>(w: &mut W) -> io::Result<()> {
-    w.write_all(b"    ")
-}
-
-fn render_subgraphs<
-    'a,
-    N: Clone + 'a,
-    E: Clone + 'a,
-    S: Clone + 'a,
-    G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
-    W: Write,
->(
-    g: &'a G,
-    subgraphs: &Subgraphs<'a, S>,
-    w: &mut W,
-    options: &[RenderOption],
-) -> io::Result<()> {
-    for s in subgraphs.iter() {
-        let label;
-        let colorstring;
-        let shape;
-
-        let mut text = vec!["subgraph "];
-        let id = g
-            .subgraph_id(s)
-            .map(|x| format!("{} ", x.name()))
-            .unwrap_or_default();
-
-        text.push(&id);
-
-        text.push("{\n");
-
-        if !options.contains(&RenderOption::NoNodeLabels) {
-            label = format!("label={};\n", g.subgraph_label(s).to_dot_string());
-            text.push(&label);
-        }
-
-        let style = g.subgraph_style(s);
-        if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
-            text.push("style=\"");
-            text.push(style.as_str());
-            text.push("\";\n");
-        }
-
-        let color = g.subgraph_color(s);
-        if !options.contains(&RenderOption::NoNodeColors)
-            && let Some(c) = color
-        {
-            colorstring = c.to_dot_string();
-            text.push("color=");
-            text.push(&colorstring);
-            text.push(";\n");
-        }
-
-        if let Some(s) = g.subgraph_shape(s) {
-            shape = s.to_dot_string();
-            text.push("shape=\"");
-            text.push(&shape);
-            text.push(";\n");
-        }
-
-        writeln(w, &text)?;
-
-        for n in g.subgraph_nodes(s).iter() {
-            writeln(w, &[g.node_id(n).as_str(), ";"])?;
-        }
-
-        writeln(w, &["\n}\n"])?;
-    }
-
-    Ok(())
-}
-
-fn render_nodes<
-    'a,
-    N: Clone + 'a,
-    E: Clone + 'a,
-    S: Clone + 'a,
-    G: Labeller<'a, N, E, S> + GraphWalk<'a, N, E, S>,
-    W: Write,
->(
-    g: &'a G,
-    nodes: &Nodes<'a, N>,
-    w: &mut W,
-    options: &[RenderOption],
-) -> io::Result<()> {
-    for n in nodes.iter() {
-        let colorstring;
-
-        indent(w)?;
-        let id = g.node_id(n);
-
-        let escaped = &g.node_label(n).to_dot_string();
-        let shape;
-
-        let mut text = vec![id.as_str()];
-
-        if !options.contains(&RenderOption::NoNodeLabels) {
-            text.push("[label=");
-            text.push(escaped);
-            text.push("]");
-        }
-
-        let style = g.node_style(n);
-        if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
-            text.push("[style=\"");
-            text.push(style.as_str());
-            text.push("\"]");
-        }
-
-        let color = g.node_color(n);
-        if !options.contains(&RenderOption::NoNodeColors) {
-            if let Some(c) = color {
-                colorstring = c.to_dot_string();
-                text.push("[color=");
-                text.push(&colorstring);
-                text.push("]");
-            }
-        }
-
-        if let Some(s) = g.node_shape(n) {
-            shape = s.to_dot_string();
-            text.push("[shape=");
-            text.push(&shape);
-            text.push("]");
-        }
-
+        text.extend(edge_attrs.iter().map(|s| s.as_str()));
         text.push(";");
         writeln(w, &text)?;
     }
