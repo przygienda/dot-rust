@@ -551,7 +551,7 @@ impl<'a> Id<'a> {
 /// it in the generated .dot file. They can also provide more
 /// elaborate (and non-unique) label text that is used in the graphviz
 /// rendered output.
-
+///
 /// The graph instance is responsible for providing the DOT compatible
 /// identifiers for the nodes and (optionally) rendered labels for the nodes and
 /// edges, as well as an identifier for the graph itself.
@@ -1176,13 +1176,6 @@ pub fn render_opts<
     w: &mut W,
     options: &[RenderOption],
 ) -> io::Result<()> {
-    fn writeln<W: Write>(w: &mut W, arg: &[&str]) -> io::Result<()> {
-        for &s in arg {
-            w.write_all(s.as_bytes())?;
-        }
-        write!(w, "\n")
-    }
-
     fn indent<W: Write>(w: &mut W) -> io::Result<()> {
         w.write_all(b"    ")
     }
@@ -1191,11 +1184,11 @@ pub fn render_opts<
 
     render_subgraphs(g, &g.subgraphs(), w, options)?;
 
-    if g.kind() == Kind::Digraph {
-        if let Some(rankdir) = g.rank_dir() {
-            indent(w)?;
-            writeln(w, &["rankdir=\"", rankdir.as_str(), "\";"])?;
-        }
+    if g.kind() == Kind::Digraph
+        && let Some(rankdir) = g.rank_dir()
+    {
+        indent(w)?;
+        writeln(w, &["rankdir=\"", rankdir.as_str(), "\";"])?;
     }
 
     for (name, value) in g.graph_attrs().iter() {
@@ -1226,13 +1219,13 @@ pub fn render_opts<
         }
 
         let color = g.node_color(n);
-        if !options.contains(&RenderOption::NoNodeColors) {
-            if let Some(c) = color {
-                colorstring = c.to_dot_string();
-                text.push("[color=");
-                text.push(&colorstring);
-                text.push("]");
-            }
+        if !options.contains(&RenderOption::NoNodeColors)
+            && let Some(c) = color
+        {
+            colorstring = c.to_dot_string();
+            text.push("[color=");
+            text.push(&colorstring);
+            text.push("]");
         }
 
         if let Some(s) = g.node_shape(n) {
@@ -1303,13 +1296,13 @@ pub fn render_opts<
         }
 
         let color = g.edge_color(e);
-        if !options.contains(&RenderOption::NoEdgeColors) {
-            if let Some(c) = color {
-                colorstring = c.to_dot_string();
-                text.push("[color=");
-                text.push(&colorstring);
-                text.push("]");
-            }
+        if !options.contains(&RenderOption::NoEdgeColors)
+            && let Some(c) = color
+        {
+            colorstring = c.to_dot_string();
+            text.push("[color=");
+            text.push(&colorstring);
+            text.push("]");
         }
 
         if !options.contains(&RenderOption::NoArrows)
@@ -1346,7 +1339,7 @@ fn writeln<W: Write>(w: &mut W, arg: &[&str]) -> io::Result<()> {
     for &s in arg {
         w.write_all(s.as_bytes())?;
     }
-    write!(w, "\n")
+    writeln!(w)
 }
 
 fn indent<W: Write>(w: &mut W) -> io::Result<()> {
@@ -1394,13 +1387,13 @@ fn render_subgraphs<
         }
 
         let color = g.subgraph_color(s);
-        if !options.contains(&RenderOption::NoNodeColors) {
-            if let Some(c) = color {
-                colorstring = c.to_dot_string();
-                text.push("color=");
-                text.push(&colorstring);
-                text.push(";\n");
-            }
+        if !options.contains(&RenderOption::NoNodeColors)
+            && let Some(c) = color
+        {
+            colorstring = c.to_dot_string();
+            text.push("color=");
+            text.push(&colorstring);
+            text.push(";\n");
         }
 
         if let Some(s) = g.subgraph_shape(s) {
