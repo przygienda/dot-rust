@@ -426,10 +426,6 @@ pub enum Style {
 }
 
 impl Style {
-    pub fn as_slice(&self) -> &str {
-        self.as_str()
-    }
-
     pub fn as_str(self) -> &'static str {
         match self {
             Self::None => "",
@@ -545,10 +541,6 @@ impl<'a> Id<'a> {
         &self.name
     }
 
-    pub fn as_slice(&'a self) -> &'a str {
-        &*self.name
-    }
-
     pub fn name(self) -> Cow<'a, str> {
         self.name
     }
@@ -620,7 +612,7 @@ pub trait Labeller<'a, N, E, S = ()> {
         None
     }
 
-    /// Maps `n` to a set of arbritrary node attributes.
+    /// Maps `n` to a set of arbitrary node attributes.
     fn node_attrs(&'a self, _n: &N) -> HashMap<&'a str, &'a str> {
         HashMap::default()
     }
@@ -650,7 +642,7 @@ pub trait Labeller<'a, N, E, S = ()> {
         None
     }
 
-    /// Maps `e` to a set of arbritrary edge attributes.
+    /// Maps `e` to a set of arbitrary edge attributes.
     fn edge_attrs(&'a self, _e: &E) -> HashMap<&'a str, &'a str> {
         HashMap::default()
     }
@@ -662,7 +654,7 @@ pub trait Labeller<'a, N, E, S = ()> {
     }
 
     /// Maps `s` to a unique subgraph identifier.
-    /// Prefix this identifier by `cluster_` to draw this subgraph in its own distinct retangle.
+    /// Prefix this identifier by `cluster_` to draw this subgraph in its own distinct rectangle.
     fn subgraph_id(&'a self, _s: &S) -> Option<Id<'a>> {
         None
     }
@@ -801,7 +793,7 @@ impl<'a> LabelText<'a> {
     }
 
     /// Renders text as string suitable for a label in a .dot file.
-    /// This includes quotes or suitable delimeters.
+    /// This includes quotes or suitable delimiters.
     pub fn to_dot_string(&self) -> String {
         match self {
             LabelStr(s) => format!("\"{}\"", LabelText::escape_default(s)),
@@ -1127,12 +1119,12 @@ pub trait GraphWalk<'a, N: Clone, E: Clone, S: Clone = ()> {
     /// The target node for `edge`.
     fn target(&'a self, edge: &E) -> N;
 
-    /// Retuns all the subgraphs in this graph.
+    /// Returns all the subgraphs in this graph.
     fn subgraphs(&'a self) -> Subgraphs<'a, S> {
         std::borrow::Cow::Borrowed(&[])
     }
 
-    /// Retuns all the subgraphs in this graph.
+    /// Returns all the subgraphs in this graph.
     fn subgraph_nodes(&'a self, _s: &S) -> Nodes<'a, N> {
         std::borrow::Cow::Borrowed(&[])
     }
@@ -1195,7 +1187,7 @@ pub fn render_opts<
         w.write_all(b"    ")
     }
 
-    writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_slice(), " {"])?;
+    writeln(w, &[g.kind().keyword(), " ", g.graph_id().as_str(), " {"])?;
 
     render_subgraphs(g, &g.subgraphs(), w, options)?;
 
@@ -1218,7 +1210,7 @@ pub fn render_opts<
         let escaped = &g.node_label(n).to_dot_string();
         let shape;
 
-        let mut text = vec![id.as_slice()];
+        let mut text = vec![id.as_str()];
 
         if !options.contains(&RenderOption::NoNodeLabels) {
             text.push("[label=");
@@ -1229,7 +1221,7 @@ pub fn render_opts<
         let style = g.node_style(n);
         if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
             text.push("[style=\"");
-            text.push(style.as_slice());
+            text.push(style.as_str());
             text.push("\"]");
         }
 
@@ -1397,7 +1389,7 @@ fn render_subgraphs<
         let style = g.subgraph_style(s);
         if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
             text.push("style=\"");
-            text.push(style.as_slice());
+            text.push(style.as_str());
             text.push("\";\n");
         }
 
@@ -1421,7 +1413,7 @@ fn render_subgraphs<
         writeln(w, &text)?;
 
         for n in g.subgraph_nodes(s).iter() {
-            writeln(w, &[g.node_id(n).as_slice(), ";"])?;
+            writeln(w, &[g.node_id(n).as_str(), ";"])?;
         }
 
         writeln(w, &["\n}\n"])?;
@@ -1452,7 +1444,7 @@ fn render_nodes<
         let escaped = &g.node_label(n).to_dot_string();
         let shape;
 
-        let mut text = vec![id.as_slice()];
+        let mut text = vec![id.as_str()];
 
         if !options.contains(&RenderOption::NoNodeLabels) {
             text.push("[label=");
@@ -1463,7 +1455,7 @@ fn render_nodes<
         let style = g.node_style(n);
         if !options.contains(&RenderOption::NoNodeStyles) && style != Style::None {
             text.push("[style=\"");
-            text.push(style.as_slice());
+            text.push(style.as_str());
             text.push("\"]");
         }
 
