@@ -1450,6 +1450,7 @@ mod tests {
     use super::LabelText::{self, EscStr, HtmlStr, LabelStr};
     use super::{Arrow, ArrowShape, Side};
     use super::{Edges, GraphWalk, Id, Kind, Labeller, Nodes, RankDir, Style, Subgraphs, render};
+    use expect_test::{Expect, expect};
     use std::io;
     use std::io::prelude::*;
 
@@ -2056,6 +2057,12 @@ mod tests {
         Ok(s)
     }
 
+    fn check_input_default(g: DefaultStyleGraph, expect: Expect) {
+        let mut data = Vec::new();
+        render(&g, &mut data).unwrap();
+        expect.assert_eq(str::from_utf8(&data).unwrap());
+    }
+
     #[test]
     fn default_style_graph() {
         let r = test_input_default(DefaultStyleGraph::new(
@@ -2165,6 +2172,27 @@ N3;
     N2 -> N3[label=""];
 }
 "#
+        );
+    }
+
+    #[test]
+    fn simple_subgraph() {
+        check_input_default(
+            DefaultStyleGraph::new("simple_subgraph", 2, vec![], vec![vec![0, 1]], Kind::Graph),
+            expect![[r#"
+                graph simple_subgraph {
+                subgraph cluster_0 {
+                label="";
+
+                N0;
+                N1;
+
+                }
+
+                    N0[label="N0"];
+                    N1[label="N1"];
+                }
+            "#]],
         );
     }
 }
