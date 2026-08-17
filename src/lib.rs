@@ -683,10 +683,10 @@ pub trait Labeller<'a, N, E, S = ()> {
 
     /// Specify a subpart of the source node for the origin of the edge (portname) and a
     /// direction for the edge (compass_point). See also
-    /// https://graphviz.org/docs/attr-types/portPos/.
+    /// <https://graphviz.org/docs/attr-types/portPos/>.
     ///
     /// For the portname to take effect the node shape must be `record`. See
-    /// also https://graphviz.org/doc/info/shapes.html#record
+    /// also <https://graphviz.org/doc/info/shapes.html#record>
     fn source_port_position(&'a self, _e: &E) -> (Option<Id<'a>>, Option<CompassPoint>) {
         (None, None)
     }
@@ -698,7 +698,7 @@ pub trait Labeller<'a, N, E, S = ()> {
 }
 
 /// Allowed values for compass points. Used for specifying edge directions. See
-/// also https://graphviz.org/docs/attr-types/portPos/
+/// also <https://graphviz.org/docs/attr-types/portPos/>
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum CompassPoint {
     N,
@@ -1982,11 +1982,11 @@ mod tests {
         ) -> DefaultStyleGraph {
             assert!(!name.is_empty());
             DefaultStyleGraph {
-                name: name,
-                nodes: nodes,
-                edges: edges,
-                subgraphs: subgraphs,
-                kind: kind,
+                name,
+                nodes,
+                edges,
+                subgraphs,
+                kind,
                 rankdir: None,
             }
         }
