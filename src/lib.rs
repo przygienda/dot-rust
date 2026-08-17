@@ -414,6 +414,7 @@ pub enum LabelText<'a> {
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum Style {
     None,
+    Invisible,
     Solid,
     Dashed,
     Dotted,
@@ -429,6 +430,7 @@ impl Style {
     pub fn as_str(self) -> &'static str {
         match self {
             Self::None => "",
+            Self::Invisible => "invis",
             Self::Solid => "solid",
             Self::Dashed => "dashed",
             Self::Dotted => "dotted",
@@ -1807,6 +1809,24 @@ mod tests {
             expect![[r#"digraph single_cyclic_node {
     N0[label="N0"];
     N0 -> N0[label="E"];
+}
+"#]],
+        );
+    }
+
+    #[test]
+    fn invisible() {
+        let labels: Trivial = UnlabelledNodes(1);
+        check_input(
+            &LabelledGraph::new(
+                "single_cyclic_node",
+                labels,
+                vec![edge(0, 0, "E", Style::Invisible, None)],
+                Some(vec![Style::Invisible]),
+            ),
+            expect![[r#"digraph single_cyclic_node {
+    N0[label="N0"][style="invis"];
+    N0 -> N0[label="E"][style="invis"];
 }
 "#]],
         );
